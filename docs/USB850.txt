@@ -1,0 +1,411 @@
+High Speed device @ 1 (0x02100000): .............................................   Hub device: "USB2.1 Hub"
+    Port Information:   0x001a
+           Not Captive
+           Attached to Root Hub
+           External Device
+           Connected
+           Enabled
+    Number Of Endpoints (includes EP0):   
+        Total Endpoints for Configuration 1 (current):   2
+    Device Descriptor   
+        Descriptor Version Number:   0x0210
+        Device Class:   9   (Hub)
+        Device Subclass:   0
+        Device Protocol:   2   (High Speed Multiple Transaction Translators)
+        Device MaxPacketSize:   64
+        Device VendorID/ProductID:   0x0BDA/0x5411   (Realtek Semiconductor Corp.)
+        Device Version Number:   0x0203
+        Number of Configurations:   1
+        Manufacturer String:   1 "Generic"
+        Product String:   2 "USB2.1 Hub"
+        Serial Number String:   0 (none)
+    Configuration Descriptor (current config)   
+        Length (and contents):   41
+            Raw Descriptor (hex)    0000: 09 02 29 00 01 01 00 E0  00 09 04 00 00 01 09 00  
+            Raw Descriptor (hex)    0010: 01 00 07 05 81 03 01 00  0C 09 04 00 01 01 09 00  
+            Raw Descriptor (hex)    0020: 02 00 07 05 81 03 01 00  0C 
+        Number of Interfaces:   1
+        Configuration Value:   1
+        Attributes:   0xE0 (self-powered, remote wakeup)
+        MaxPower:   0 mA
+        Interface #0 - Hub   
+            Alternate Setting   0
+            Number of Endpoints   1
+            Interface Class:   9   (Hub)
+            Interface Subclass;   0
+            Interface Protocol:   1   (Multi TT Hub configured as a Single TT Hub)
+            Endpoint 0x81 - Interrupt Input   
+                Address:   0x81  (IN)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   0x0001  (1 x 1  transactions opportunities per microframe)
+                Polling Interval:   12 (2048 microframes (256 msecs) )
+        Interface #0 - Hub (#1)   
+            Alternate Setting   1
+            Number of Endpoints   1
+            Interface Class:   9   (Hub)
+            Interface Subclass;   0
+            Interface Protocol:   2   (Multi TT Hub)
+            Endpoint 0x81 - Interrupt Input   
+                Address:   0x81  (IN)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   0x0001  (1 x 1  transactions opportunities per microframe)
+                Polling Interval:   12 (2048 microframes (256 msecs) )
+    Hub Descriptor   
+        Length (and contents):   9
+            Raw Descriptor (hex)   0000: 09 29 05 AD 00 00 64 38  FF 
+        Number of Ports:   0x05
+        Hub Characteristics:   0xad (Individually switched compound hub with individual port overcurrent protection)
+        PowerOnToGood time:   0 ms
+        Controller current:   100 mA
+        Device Removable (byte):   0x38
+        Port Power Control Mask (byte):   0xff
+    Device Qualifier Descriptor   
+        Descriptor Version Number:   0x0210
+        Device Class   9   (Hub)
+        Device Subclass   0
+        Device Protocol   0   (Full/Low Speed)
+        Device MaxPacketSize:   64
+        Number of Configurations:   1
+        bReserved:   0
+    Other Speed Configuration Descriptor   
+        Length (and contents):   25
+            Raw Descriptor (hex)    0000: 09 07 19 00 01 01 00 E0  00 09 04 00 00 01 09 00  
+            Raw Descriptor (hex)    0010: 01 00 07 05 81 03 01 00  FF 
+        Number of Interfaces:   1
+        Configuration Value:   1
+        Attributes:   0xE0 (self-powered, remote wakeup)
+        MaxPower:   0 mA
+        Interface #0 - Hub   
+            Alternate Setting   0
+            Number of Endpoints   1
+            Interface Class:   9   (Hub)
+            Interface Subclass;   0
+            Interface Protocol:   1   (Multi TT Hub configured as a Single TT Hub)
+            Endpoint 0x81 - Interrupt Input   
+                Address:   0x81  (IN)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   1
+                Polling Interval:   255 ms
+Low Speed device @ 3 (0x02120000): .............................................   Composite device: "CHERRY Wired Keyboard"
+    Port Information:   0x0018
+           Not Captive
+           External Device
+           Connected
+           Enabled
+    Number Of Endpoints (includes EP0):   
+        Total Endpoints for Configuration 1 (current):   3
+    Device Descriptor   
+        Descriptor Version Number:   0x0200
+        Device Class:   0   (Composite)
+        Device Subclass:   0
+        Device Protocol:   0
+        Device MaxPacketSize:   8
+        Device VendorID/ProductID:   0x046A/0xC097   (CHERRY GmbH)
+        Device Version Number:   0x0490
+        Number of Configurations:   1
+        Manufacturer String:   1 "Cherry GmbH"
+        Product String:   2 "CHERRY Wired Keyboard"
+        Serial Number String:   0 (none)
+    Configuration Descriptor (current config)   
+        Length (and contents):   59
+            Raw Descriptor (hex)    0000: 09 02 3B 00 02 01 00 A0  32 09 04 00 00 01 03 01  
+            Raw Descriptor (hex)    0010: 01 00 09 21 11 01 00 01  22 4B 00 07 05 81 03 08  
+            Raw Descriptor (hex)    0020: 00 0A 09 04 01 00 01 03  00 00 00 09 21 11 01 00  
+            Raw Descriptor (hex)    0030: 01 22 2F 00 07 05 82 03  05 00 0A 
+        Number of Interfaces:   2
+        Configuration Value:   1
+        Attributes:   0xA0 (bus-powered, remote wakeup)
+        MaxPower:   100 mA
+        Interface #0 - HID/Boot Interface   
+            Alternate Setting   0
+            Number of Endpoints   1
+            Interface Class:   3   (HID)
+            Interface Subclass;   1   (Boot Interface)
+            Interface Protocol:   1
+            HID Descriptor   
+                Descriptor Version Number:   0x0111
+                Country Code:   0
+                Descriptor Count:   1
+                Descriptor 1   
+                    Type:   0x22  (Report Descriptor)
+                    Length (and contents):   75
+                        Raw Descriptor (hex)    0000: 05 01 09 06 A1 01 05 07  19 E0 29 E7 15 00 25 01  
+                        Raw Descriptor (hex)    0010: 75 01 95 08 81 02 95 01  75 08 81 01 05 08 19 01  
+                        Raw Descriptor (hex)    0020: 29 05 95 05 75 01 91 02  95 01 75 03 91 01 05 07  
+                        Raw Descriptor (hex)    0030: 19 00 2A FF 00 95 05 75  08 15 00 26 FF 00 81 00  
+                        Raw Descriptor (hex)    0040: 05 FF 09 03 75 08 95 01  81 02 C0 
+                    Parsed Report Descriptor:   
+                          Usage Page    (Generic Desktop) 
+                          Usage (Keyboard)    
+                              Collection (Application)    
+                                Usage Page    (Keyboard/Keypad) 
+                                Usage Minimum...........    (224)  
+                                Usage Maximum...........    (231)  
+                                Logical Minimum.........    (0)  
+                                Logical Maximum.........    (1)  
+                                Report Size.............    (1)  
+                                Report Count............    (8)  
+                                Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Report Count............    (1)  
+                                Report Size.............    (8)  
+                                Input...................   (Constant, Array, Absolute) 
+                                Usage Page    (LED) 
+                                Usage Minimum...........    (1)  
+                                Usage Maximum...........    (5)  
+                                Report Count............    (5)  
+                                Report Size.............    (1)  
+                                Output..................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Nonvolatile, Bitfield) 
+                                Report Count............    (1)  
+                                Report Size.............    (3)  
+                                Output..................   (Constant, Array, Absolute, No Wrap, Linear, Preferred State, No Null Position, Nonvolatile, Bitfield) 
+                                Usage Page    (Keyboard/Keypad) 
+                                Usage Minimum...........    (0)  
+                                Usage Maximum...........    (255)  
+                                Report Count............    (5)  
+                                Report Size.............    (8)  
+                                Logical Minimum.........    (0)  
+                                Logical Maximum.........    (255)  
+                                Input...................   (Data, Array, Absolute) 
+                                Usage Page    (255) 
+                                Usage 3 (0x3)    
+                                Report Size.............    (8)  
+                                Report Count............    (1)  
+                                Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                              End Collection     
+            Endpoint 0x81 - Interrupt Input   
+                Address:   0x81  (IN)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   8
+                Polling Interval:   10 ms
+        Interface #1 - HID   
+            Alternate Setting   0
+            Number of Endpoints   1
+            Interface Class:   3   (HID)
+            Interface Subclass;   0
+            Interface Protocol:   0
+            HID Descriptor   
+                Descriptor Version Number:   0x0111
+                Country Code:   0
+                Descriptor Count:   1
+                Descriptor 1   
+                    Type:   0x22  (Report Descriptor)
+                    Length (and contents):   47
+                        Raw Descriptor (hex)    0000: 05 0C 09 01 A1 01 05 0C  75 01 95 01 15 00 25 01  
+                        Raw Descriptor (hex)    0010: 09 CD 81 06 09 B5 81 02  09 B6 81 02 09 B8 81 06  
+                        Raw Descriptor (hex)    0020: 09 E2 81 06 09 EA 81 02  09 E9 81 02 81 01 C0 
+                    Parsed Report Descriptor:   
+                          Usage Page    (Consumer) 
+                          Usage 1 (0x1)    
+                              Collection (Application)    
+                                Usage Page    (Consumer) 
+                                Report Size.............    (1)  
+                                Report Count............    (1)  
+                                Logical Minimum.........    (0)  
+                                Logical Maximum.........    (1)  
+                                Usage 205 (0xcd)    
+                                Input...................   (Data, Variable, Relative, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Usage 181 (0xb5)    
+                                Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Usage 182 (0xb6)    
+                                Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Usage 184 (0xb8)    
+                                Input...................   (Data, Variable, Relative, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Usage 226 (0xe2)    
+                                Input...................   (Data, Variable, Relative, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Usage 234 (0xea)    
+                                Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Usage 233 (0xe9)    
+                                Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                Input...................   (Constant, Array, Absolute) 
+                              End Collection     
+            Endpoint 0x82 - Interrupt Input   
+                Address:   0x82  (IN)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   5
+                Polling Interval:   10 ms
+Full Speed device @ 2 (0x02110000): .............................................   Composite device: "PIONEER CDJ-850"
+    Port Information:   0x0018
+           Not Captive
+           External Device
+           Connected
+           Enabled
+    Number Of Endpoints (includes EP0):   
+        Total Endpoints for Configuration 1 (current):   5
+    Device Descriptor   
+        Descriptor Version Number:   0x0200
+        Device Class:   0   (Composite)
+        Device Subclass:   0
+        Device Protocol:   0
+        Device MaxPacketSize:   64
+        Device VendorID/ProductID:   0x08E4/0x0157   (Pioneer Corporation)
+        Device Version Number:   0x0112
+        Number of Configurations:   1
+        Manufacturer String:   1 "PIONEER Corporation."
+        Product String:   2 "PIONEER CDJ-850"
+        Serial Number String:   0 (none)
+    Configuration Descriptor (current config)   
+        Length (and contents):   198
+            Raw Descriptor (hex)    0000: 09 02 C6 00 05 01 00 C0  00 09 04 00 00 00 01 01  
+            Raw Descriptor (hex)    0010: 00 03 09 24 01 00 01 1E  00 01 01 0C 24 02 01 01  
+            Raw Descriptor (hex)    0020: 01 00 02 03 00 00 00 09  24 03 02 01 03 00 01 00  
+            Raw Descriptor (hex)    0030: 09 04 01 00 00 01 02 00  00 09 04 01 01 01 01 02  
+            Raw Descriptor (hex)    0040: 00 00 07 24 01 01 00 01  00 0E 24 02 01 02 02 10  
+            Raw Descriptor (hex)    0050: 02 44 AC 00 80 BB 00 09  05 01 01 C8 00 01 00 00  
+            Raw Descriptor (hex)    0060: 07 25 01 01 00 00 00 09  04 02 00 00 01 01 00 04  
+            Raw Descriptor (hex)    0070: 09 24 01 00 01 09 00 01  03 09 04 03 00 01 01 03  
+            Raw Descriptor (hex)    0080: 00 05 07 24 01 00 01 24  00 09 24 03 01 01 01 02  
+            Raw Descriptor (hex)    0090: 01 00 06 24 02 02 02 00  09 05 83 02 40 00 00 00  
+            Raw Descriptor (hex)    00a0: 00 05 25 01 01 01 09 04  04 00 02 03 00 00 06 09  
+            Raw Descriptor (hex)    00b0: 21 10 01 00 01 22 34 00  07 05 06 03 24 00 01 07  
+            Raw Descriptor (hex)    00c0: 05 87 03 14 00 01 
+        Number of Interfaces:   5
+        Configuration Value:   1
+        Attributes:   0xC0 (self-powered)
+        MaxPower:   0 mA
+        Interface #0 - Audio/Control ..............................................   "PIONEER CDJ-850"
+            Alternate Setting   0
+            Number of Endpoints   0
+            Interface Class:   1   (Audio)
+            Interface Subclass;   1   (Control)
+            Interface Protocol:   0
+            Audio Control Class Specific Header   
+                Descriptor Version Number:   01.00
+                Class Specific Size:   30
+                Number of Audio Interfaces:   1
+                Audio Interface Number:   1
+                Dump Contents (hex):   09 24 01 00 01 1E 00 01 01 
+            Audio Class Specific Input Terminal   
+                Terminal ID:   1
+                Input Terminal Type:   0x101 (USB streaming)
+                OutTerminal ID:   0 [NONE]
+                Number of Channels:   2
+                Spatial config of channels:   0000000000000011
+                                  ^.  Left Front
+                                 ^..  Right Front
+                String index for first logical channel:   0
+                Terminal Name String Index:   0 [NONE]
+            Audio Class Specific Output Terminal   
+                Terminal ID:   2
+                Output Terminal Type:   0x301 (Speaker)
+                InTerminal ID:   0 [NONE]
+                Source ID:   1
+                Terminal Name String Index:   0 [NONE]
+        Interface #1 - Audio/Streaming   
+            Alternate Setting   0
+            Number of Endpoints   0
+            Interface Class:   1   (Audio)
+            Interface Subclass;   2   (Streaming)
+            Interface Protocol:   0
+        Interface #1 - Audio/Streaming (#1)   
+            Alternate Setting   1
+            Number of Endpoints   1
+            Interface Class:   1   (Audio)
+            Interface Subclass;   2   (Streaming)
+            Interface Protocol:   0
+            Audio Control Class Specific Header   
+                Audio Stream General   
+                    Endpoint Terminal ID:   1
+                    Delay:   0 frames     (Delay NOT SUPPORTED)
+                    Format Tag:   0x0001 (PCM)
+            Audio Class Specific Audio Data Format   
+                Audio Stream Format Type Desc.   
+                    Format Type:   1 PCM
+                    Number Of Channels:   2 STEREO
+                    Sub Frame Size:   2
+                    Bit Resolution:   16
+                    Sample Frequency Type:   0x02 (Discrete)
+                    Sample Frequency:   44100 Hz
+                    Sample Frequency:   48000 Hz
+            Endpoint 0x01 - Isochronous Output   
+                Address:   0x01  (OUT)
+                Attributes:   0x01  (Isochronous no synchronization data endpoint)
+                Max Packet Size:   200
+                Polling Interval:   1 ms
+            Class-Specific AS Audio EndPoint   
+                Attributes:   0x01  Sample Frequency,  
+                bLockDelayUnits:   0x00  (UNDEFINED)
+                wLockDelay:   0 
+        Interface #2 - Audio/Control ..............................................   "PIONEER CDJ-850 MIDI"
+            Alternate Setting   0
+            Number of Endpoints   0
+            Interface Class:   1   (Audio)
+            Interface Subclass;   1   (Control)
+            Interface Protocol:   0
+            Audio Control Class Specific Header   
+                Descriptor Version Number:   01.00
+                Class Specific Size:   9
+                Number of Audio Interfaces:   1
+                Audio Interface Number:   3
+                Dump Contents (hex):   09 24 01 00 01 09 00 01 03 
+        Interface #3 - Audio/Streaming ..............................................   "USB MIDI Interface2"
+            Alternate Setting   0
+            Number of Endpoints   1
+            Interface Class:   1   (Audio)
+            Interface Subclass;   3   (Streaming)
+            Interface Protocol:   0
+            Uknown Interface SubClass Type   
+            Uknown Interface SubClass Type   
+            Uknown Interface SubClass Type   
+            Endpoint 0x83 - Bulk Input   
+                Address:   0x83  (IN)
+                Attributes:   0x02  (Bulk)
+                Max Packet Size:   64
+                Polling Interval:   0 ms
+            Class-Specific AS Audio EndPoint   
+                Attributes:   0x01  Sample Frequency,  
+                bLockDelayUnits:   0x01  (Milliseconds)
+                wLockDelay:   1033 ms
+        Interface #4 - HID ..............................................   "PIONEER CDJ-850 HID"
+            Alternate Setting   0
+            Number of Endpoints   2
+            Interface Class:   3   (HID)
+            Interface Subclass;   0
+            Interface Protocol:   0
+            HID Descriptor   
+                Descriptor Version Number:   0x0110
+                Country Code:   0
+                Descriptor Count:   1
+                Descriptor 1   
+                    Type:   0x22  (Report Descriptor)
+                    Length (and contents):   52
+                        Raw Descriptor (hex)    0000: 06 A0 FF 09 01 A1 01 09  02 A1 00 06 A1 FF 09 03  
+                        Raw Descriptor (hex)    0010: 09 04 15 80 25 7F 35 00  45 FF 75 08 95 14 81 02  
+                        Raw Descriptor (hex)    0020: 09 05 09 06 15 80 25 7F  35 00 45 FF 75 08 95 24  
+                        Raw Descriptor (hex)    0030: 91 02 C0 C0 
+                    Parsed Report Descriptor:   
+                          Usage Page    (Vendor defined 160) 
+                          Usage 1 (0x1)    
+                              Collection (Application)    
+                                Usage 2 (0x2)    
+                                    Collection (Physical)    
+                                      Usage Page    (Vendor defined 161) 
+                                      Usage 3 (0x3)    
+                                      Usage 4 (0x4)    
+                                      Logical Minimum.........    (-128)  
+                                      Logical Maximum.........    (127)  
+                                      Physical Minimum........    (0)  
+                                      Physical Maximum........    (-1)  
+                                      Report Size.............    (8)  
+                                      Report Count............    (20)  
+                                      Input...................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Bitfield) 
+                                      Usage 5 (0x5)    
+                                      Usage 6 (0x6)    
+                                      Logical Minimum.........    (-128)  
+                                      Logical Maximum.........    (127)  
+                                      Physical Minimum........    (0)  
+                                      Physical Maximum........    (-1)  
+                                      Report Size.............    (8)  
+                                      Report Count............    (36)  
+                                      Output..................   (Data, Variable, Absolute, No Wrap, Linear, Preferred State, No Null Position, Nonvolatile, Bitfield) 
+                                    End Collection     
+                              End Collection     
+            Endpoint 0x06 - Interrupt Output   
+                Address:   0x06  (OUT)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   36
+                Polling Interval:   1 ms
+            Endpoint 0x87 - Interrupt Input   
+                Address:   0x87  (IN)
+                Attributes:   0x03  (Interrupt)
+                Max Packet Size:   20
+                Polling Interval:   1 ms
