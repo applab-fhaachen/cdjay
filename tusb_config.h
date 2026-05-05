@@ -22,3 +22,12 @@
 #ifndef CFG_TUD_ENDPOINT0_SIZE
 #define CFG_TUD_ENDPOINT0_SIZE (64) 
 #endif 
+
+//#define CFG_TUD_CDC               0
+#define CFG_TUD_MSC               0
+#define CFG_TUD_HID               1
+#define CFG_TUD_MIDI              1
+#define CFG_TUD_VENDOR            0
+
+#define CFG_TUD_MIDI_RX_BUFFSIZE (64)//USB MIDI Event Packets are 32 bit, 64 should be enough 
+#define CFG_TUD_MIDI_TX_BUFFSIZE (64)

@@ -2,8 +2,8 @@
 #include <bsp/board_api.h>
 
 
-#define PROTOTYPE_VID 0xF1D0 //official VID for prototyping
-#define PROTOTYPE_PID 0x4000 // we use a fixed product id for our product
+#define PROTOTYPE_VID 0x08E4 //official VID for prototyping
+#define PROTOTYPE_PID 0x0157 // we use a fixed product id for our product
 
 
 tusb_desc_device_t const device_desc = {
@@ -18,7 +18,7 @@ tusb_desc_device_t const device_desc = {
 
     .idVendor =  PROTOTYPE_VID, //we use the prototype VID as the vendor id
     .idProduct = PROTOTYPE_PID, //the fixed product ID we set before
-    .bcdDevice = 0x0100, //device release number in BCD
+    .bcdDevice = 0x0112, //device release number in BCD
 
     .iManufacturer = 0x1, //index of the Manufaturer field in the string_dec_arr
     .iProduct = 0x02, //index of the product field in the string desc_arr
@@ -29,8 +29,8 @@ tusb_desc_device_t const device_desc = {
 //to store the device descriptors that come as strings, we use a pointer to 
 char const *string_desc_arr[] = {
     (const char []) {0x09, 0x04}, // 0 : supported language
-    "FH Aachen",                  // 1 : Manufacturer of the product
-    "CDJ-100Pico",                // 2 : Product     
+    "PIONEER Corporation.",                  // 1 : Manufacturer of the product
+    "PIONEER CDJ-850",                // 2 : Product     
     "13120000"                    // 3  : serial number of the product 
 };
 
