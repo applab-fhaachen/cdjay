@@ -28,10 +28,10 @@ tusb_desc_device_t const device_desc = {
 
 //to store the device descriptors that come as strings, we use a pointer to 
 char const *string_desc_arr[] = {
-    (const char []) {0x09, 0x04}, // 0 : supported language
-    "PIONEER Corporation.",                  // 1 : Manufacturer of the product
-    "PIONEER CDJ-850",                // 2 : Product     
-    "13120000"                    // 3  : serial number of the product 
+    (const char []) {0x09, 0x04},   // 0 : supported language
+    "PIONEER Corporation.",         // 1 : Manufacturer of the product
+    "PIONEER CDJ-850",              // 2 : Product     
+    "0"                             // 3  : serial number of the product 
 };
 
 //USB hosts identify interfaces by numbers (0, 1, 2) and the CDC device we make need two interfaces
@@ -40,6 +40,7 @@ char const *string_desc_arr[] = {
 enum {
     ITF_NUM_CDC = 0,
     ITF_NUM_CDC_DATA,
+    ITF_NUM_HID,
     ITF_NUM_TOTAL
 };
 
@@ -51,9 +52,13 @@ enum {
 #define EPNUM_CDC_NOTIF 0x81 
 #define EPNUM_CDC_OUT 0x02
 #define EPNUM_CDC_IN 0x82
+#define EPNUM_HID_IN 0x83
 
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_DESC_LEN)
 
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN)
+static uint8_t const hid_report_desc[] = {
+    TUD_HID_REPORT_DESC_GENERIC_INOUT(64)
+};
 
 uint8_t config_desc[] = {
     TUD_CONFIG_DESCRIPTOR(
@@ -68,6 +73,16 @@ uint8_t config_desc[] = {
         EPNUM_CDC_OUT,
         EPNUM_CDC_IN,
         64
+    ),
+
+    TUD_HID_DESCRIPTOR(
+        ITF_NUM_HID,
+        0,
+        HID_ITF_PROTOCOL_NONE,
+        sizeof(hid_report_desc),
+        EPNUM_HID_IN,
+        CFG_TUD_HID_EP_BUFSIZE,
+        10
     ),
 };
 
@@ -103,4 +118,37 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 
     _desc_str[0] = (TUSB_DESC_STRING << 8) | (2 + len * 2);
     return _desc_str;
+}
+
+uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
+    (void) instance;
+    return hid_report_desc;
+}
+
+uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
+    (void) instance;
+    (void) report_id;
+    (void) report_type;
+    (void) buffer;
+    (void) reqlen;
+    return 0;
+}
+
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
+    (void) instance;
+    (void) report_id;
+    (void) report_type;
+    (void) buffer;
+    (void) bufsize;
+}
+
+void tud_hid_set_protocol_cb(uint8_t instance, uint8_t protocol) {
+    (void) instance;
+    (void) protocol;
+}
+
+bool tud_hid_set_idle_cb(uint8_t instance, uint8_t idle_rate) {
+    (void) instance;
+    (void) idle_rate;
+    return true;
 }

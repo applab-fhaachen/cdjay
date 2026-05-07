@@ -10,9 +10,18 @@
 #define PICO_DEFAULT_LED_PIN 25
 #endif
 
+#ifndef PLAY_LED_PIN
+#define PLAY_LED_PIN 15
+#endif
+
+
 //turn the built_in_led on and off
 void set_built_in_led(bool led_on) {
     gpio_put(PICO_DEFAULT_LED_PIN, led_on);
+}
+
+void set_red_led(bool led_on) {
+    gpio_put(PLAY_LED_PIN, led_on);
 }
 
 //variables that hold the operands
@@ -38,7 +47,7 @@ void tud_cdc_rx_cb(uint8_t itf)
     if(waiting_for_first_op){
         operand1 = value; //if the program was waiting for the first operand, set the input integer as the value of the first operand
         waiting_for_first_op = false; //set the flag to false
-        set_built_in_led(true); //turns on the built in led to indicate that the Pico is waiting for the second input
+        set_red_led(true); //turns on the red led to indicate that the Pico is waiting for the second input
         
         tud_cdc_write_str("first number received! send the second number"); //ask user to send the second number
         tud_cdc_write_flush(); //flush the buffer to ensure the message is sent fully to the host
@@ -53,13 +62,11 @@ void tud_cdc_rx_cb(uint8_t itf)
 
         tud_cdc_write_str(out);
         tud_cdc_write_flush();
-        set_built_in_led(false);
+        set_red_led(false);
 
         waiting_for_first_op = true;
 
     }
-
-
 }
 
 
