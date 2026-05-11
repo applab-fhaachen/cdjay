@@ -76,17 +76,6 @@ uint8_t config_desc[] = {
         EPNUM_MIDI_IN,
         64
     ),
-
-    TUD_HID_INOUT_DESCRIPTOR(
-        ITF_NUM_HID,
-        5,
-        HID_ITF_PROTOCOL_NONE,
-        sizeof(hid_report_desc),
-        EPNUM_HID_OUT,
-        EPNUM_HID_IN,
-        36,
-        1
-    ),
 };
 
 
@@ -126,23 +115,6 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     (void) instance;
     return hid_report_desc;
-}
-
-uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
-    (void) instance;
-    (void) report_id;
-    (void) report_type;
-    (void) buffer;
-    (void) reqlen;
-    return 0;
-}
-
-void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
-    (void) instance;
-    (void) report_id;
-    (void) report_type;
-    (void) buffer;
-    (void) bufsize;
 }
 
 void tud_hid_set_protocol_cb(uint8_t instance, uint8_t protocol) {

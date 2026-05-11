@@ -13,6 +13,9 @@
 #include "pico/cyw43_arch.h"
 #endif
 
+#ifndef PICO_RED_LED_GPIO_PIN
+#define PICO_RED_LED_GPIO_PIN 13
+#endif
 
 enum  {
   BLINK_NOT_MOUNTED = 250,
@@ -20,33 +23,30 @@ enum  {
   BLINK_SUSPENDED = 2500,
 };
 
-
+void led_init(void) {
 #if defined(PICO_DEFAULT_LED_PIN)
     // A device like Pico that uses a GPIO for the LED will define PICO_DEFAULT_LED_PIN
     // so we can use normal GPIO functionality to turn the led on and off
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-    return PICO_OK;
 #elif defined(CYW43_WL_GPIO_LED_PIN)
     // For Pico W devices we need to initialise the driver etc
-    return cyw43_arch_init();
-#elif !defined(PICO_RED_LED_GPIO_PIN)
-    #define PICO_RED_LED_GPIO_PIN 13
+    cyw43_arch_init();
+#elif defined(PICO_RED_LED_GPIO_PIN)
     gpio_init(PICO_RED_LED_GPIO_PIN);
     gpio_set_dir(PICO_RED_LED_GPIO_PIN, GPIO_OUT);
-    return PICO_OK;
 #endif
-
+}
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
-const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+const uint LED_PIN = PICO_RED_LED_GPIO_PIN;
 
 void led_blinking_task(void);
 void midi_task(void);
 
 int main() {
   board_init();
-
+  led_init();
   tusb_init();
 
   while (1)
