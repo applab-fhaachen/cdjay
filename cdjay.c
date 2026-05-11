@@ -95,12 +95,10 @@ void tud_resume_cb(void)
 // Variable that holds the current position in the sequence.
 uint32_t note_pos = 0;
 
-// Store example melody as an array of note values
+// Store example melody as an array of note values (First on is 'play' from the MIDI excel list)
 uint8_t note_sequence[] =
 {
-  74,78,81,86,90,93,98,102,57,61,66,69,73,78,81,85,88,92,97,100,97,92,88,85,81,78,
-  74,69,66,62,57,62,66,69,74,78,81,86,90,93,97,102,97,93,90,85,81,78,73,68,64,61,
-  56,61,64,68,74,78,81,86,90,93,98,102
+  41, 43, 45, 46, 48, 50, 52, 53, 55, 57, 59, 60
 };
 
 void midi_task(void)
