@@ -28,6 +28,10 @@ set(PICO_BOARD pico2_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
 project(cdjay C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
@@ -41,15 +45,13 @@ pico_set_program_name(cdjay "cdjay")
 pico_set_program_version(cdjay "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_usb(cdjay 1)
+pico_enable_stdio_usb(cdjay 0)
 pico_enable_stdio_uart(cdjay 0)
 
 
 # Add the standard library to the build
 target_link_libraries(cdjay
-        pico_stdlib
-        tinyusb_device
-        tinyusb_board)
+        pico_stdlib)
 
 # Add the standard include files to the build
 target_include_directories(cdjay PRIVATE
@@ -59,6 +61,8 @@ target_include_directories(cdjay PRIVATE
 # Add any user requested libraries
 target_link_libraries(cdjay 
         pico_cyw43_arch_none
+        tinyusb_device
+        tinyusb_board
         )
 
 pico_add_extra_outputs(cdjay)

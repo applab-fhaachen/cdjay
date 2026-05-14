@@ -4,8 +4,19 @@
         {
             "name": "Pico Debug (Cortex-Debug)",
             "cwd": "${userHome}/.pico-sdk/openocd/0.12.0+dev/scripts",
-            "executable": "${command:raspberry-pi-pico.launchTargetPath}",
+            "executable": "${workspaceFolder}/build/cdjay.elf",
             "request": "launch",
+            "rttConfig": {
+                "enabled": true,
+                "address": "auto",
+                "decoders": [
+                    {
+                        "label": "",
+                        "port": 0,
+                        "type": "console"
+                    }
+                ]
+            },
             "type": "cortex-debug",
             "servertype": "openocd",
             "serverpath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
@@ -22,7 +33,7 @@
             // Also works fine for flash binaries
             "overrideLaunchCommands": [
                 "monitor reset init",
-                "load \"${command:raspberry-pi-pico.launchTargetPath}\""
+                "load \"${workspaceFolder}/build/cdjay.elf\""
             ],
             "openOCDLaunchCommands": [
                 "adapter speed 5000"
@@ -31,11 +42,12 @@
         {
             "name": "Pico Debug (Cortex-Debug with external OpenOCD)",
             "cwd": "${workspaceRoot}",
-            "executable": "${command:raspberry-pi-pico.launchTargetPath}",
+            "executable": "${workspaceFolder}/build/cdjay.elf",
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "external",
             "gdbTarget": "localhost:3333",
+            "preLaunchTask": "Flash",
             "gdbPath": "${command:raspberry-pi-pico.getGDBPath}",
             "debuggerArgs": ["-ex", "set debug-file-directory /debug"],
             "device": "${command:raspberry-pi-pico.getChipUppercase}",
@@ -45,7 +57,7 @@
             // Also works fine for flash binaries
             "overrideLaunchCommands": [
                 "monitor reset init",
-                "load \"${command:raspberry-pi-pico.launchTargetPath}\""
+                "load \"${workspaceFolder}/build/cdjay.elf\""
             ]
         },
     ]
