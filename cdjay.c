@@ -1,96 +1,231 @@
-#include <stdlib.h>
-#include <bsp/board_api.h>
-#include <tusb.h>
-#include <pico/stdio.h>
-#include <pico/stdlib.h>
+#include <stdio.h>
+#include "pico/stdlib.h"
+#include "pico/time.h"
+#include "hardware/gpio.h"
+#include "pico/binary_info.h"
+
+#include "bsp/board.h"
+#include "tusb.h"
 
 
-// Ensure a default LED pin is available. On Raspberry Pi Pico the onboard LED is GPIO 25.
-#ifndef PICO_DEFAULT_LED_PIN
-#define PICO_DEFAULT_LED_PIN 25
+// Pico W devices use a GPIO on the WIFI chip for the LED,
+// so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
+#ifdef CYW43_WL_GPIO_LED_PIN
+#include "pico/cyw43_arch.h"
 #endif
 
 #ifndef PLAY_LED_PIN
 #define PLAY_LED_PIN 15
 #endif
 
+#ifndef PLAY_BUTTON_PIN
+#define PLAY_BUTTON_PIN 18
+#endif
 
-//turn the built_in_led on and off
-void set_built_in_led(bool led_on) {
-    gpio_put(PICO_DEFAULT_LED_PIN, led_on);
-}
+enum  {
+  BLINK_NOT_MOUNTED = 250,
+  BLINK_MOUNTED = 100000,
+  BLINK_SUSPENDED = 100,
+};
 
-void set_red_led(bool led_on) {
-    gpio_put(PLAY_LED_PIN, led_on);
-}
+static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
+const uint LED_PIN = PLAY_LED_PIN;
 
-//variables that hold the operands
-int operand1 = 0;
-int operand2 = 0;
+// Status variables
+bool playing = false; //just for testing if button intterupts work as expected
+static bool message_sent = true; //just for testing. Default is true to avoid sending messages.
+uint8_t msg[3];
 
-//this flag is used to determine which operand the user sends
-//when we get the first input, we set this flag to false
-bool waiting_for_first_op = true;
+// This is an example for a state of the play Button
+void led_blinking_task(void);
+void midi_task(uint8_t msg[3]);
+void pico_set_led(bool led_on, bool play_led);
+void status_led_blinking_task(bool play_led);
+uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
+int led_init(void);
+int button_init(void);
 
-
-// Invoked when CDC interface received data from host
-void tud_cdc_rx_cb(uint8_t itf)
-{
-    (void) itf;
+int main() {
+  board_init();
+  int led_rc = led_init();
+  int button_rc = button_init();
+  
+  //Check if everything is set up correctly, if not, stop the program here.
+  hard_assert(led_rc == PICO_OK);
+  hard_assert(button_rc == PICO_OK);
+  
+  // Signal: slow blink = starting
+  pico_set_led(true, false);
+  sleep_ms(5000);
+  pico_set_led(false, false);
+  sleep_ms(5000);
+  
+  stdio_init_all();
+  
+  // Signal: medium blink = calling tusb_init
+  pico_set_led(true, false);
+  sleep_ms(200);
+  pico_set_led(false, false);
+  sleep_ms(200);
+  
+  tusb_init(); // tinyusb device initialization
+  
+  // Signal: fast blink = tusb_init done
+  pico_set_led(true, false);
+  sleep_ms(100);
+  pico_set_led(false, false);
+  sleep_ms(100);
+  
+  while (1)
+  {
+    tud_task(); // tinyusb device task
+    status_led_blinking_task(false); // Blink the LED to show device status
     
-    char buff[64];
-    uint32_t count = tud_cdc_read(buff, sizeof(buff)); //put the received message into the buffer (char array) and store the length as count
-    buff[count] = '\0'; // Null-terminate the string so atoi() works correctly
-
-    int value = atoi(buff); //convert the character buffer to integer
-
-    if(waiting_for_first_op){
-        operand1 = value; //if the program was waiting for the first operand, set the input integer as the value of the first operand
-        waiting_for_first_op = false; //set the flag to false
-        set_red_led(true); //turns on the red led to indicate that the Pico is waiting for the second input
-        
-        tud_cdc_write_str("first number received! send the second number"); //ask user to send the second number
-        tud_cdc_write_flush(); //flush the buffer to ensure the message is sent fully to the host
+    if (!message_sent){
+      midi_task(msg);
+      message_sent = true; // After message was send, ensure we do not send it again.
     }
-    else {
-        //get the second operand and calculate the sum
-        operand2 = value; 
-        int sum = operand1 + operand2;
-
-        char out[64]; //a character buffer to hold our output
-        snprintf(out, sizeof(out), "sum = %d\n", sum); //this is a safe method to write a string buffer that avoids buffer overflow
-
-        tud_cdc_write_str(out);
-        tud_cdc_write_flush();
-        set_red_led(false);
-
-        waiting_for_first_op = true;
-
+    // If the play button is pressed, send MIDI messages  
+    if(playing) {
+      status_led_blinking_task(true); // If playing, use the play LED for blinking.
     }
+  }
 }
 
+// button interrupt callback. The signal is send when button is pressed with full velocity
+void gpio_button_cb(uint gpio, uint32_t events) {
+  if (gpio == PLAY_BUTTON_PIN) {
+    if (events & GPIO_IRQ_EDGE_FALL) {
+      playing = !playing;
+      message_sent = false; // Set message_sent to false to ensure midi signale will be send in the main loop.
+      msg[0] = 0x90; // Note On - Channel 1
+      msg[1] = 0;
+      msg[2] = 127;
+      // main loop will send `msg` once when it sees `message_sent == false`
+    }
+    else if (events & GPIO_IRQ_EDGE_RISE) {
+      message_sent = false;
+      msg[0] = 0x80; // Note Off - Channel 1
+      msg[1] = 0;
+      msg[2] = 0;
+      // main loop will send `msg` once when it sees `message_sent == false`
+    }
+  }
+};
 
-int main(void)
-{
-
-    //initialize the pico 
-    board_init();
-
-    //intitialize the tinyUSB stack
-    tusb_init();
-
-    //intialize Pico's default led pin so that we can use it
+// LED initialization
+int led_init(void) {
+  #if defined(PICO_DEFAULT_LED_PIN)
+    // A device like Pico that uses a GPIO for the LED will define PICO_DEFAULT_LED_PIN
+    // so we can use normal GPIO functionality to turn the led on and off
+    // Just in case we war running on a pico w without CYW43_WL_GPIO_LED_PIN defined, we check for that first
     gpio_init(PICO_DEFAULT_LED_PIN);
-
-    //set that pin as an output
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    return PICO_OK;
+  #elif defined(PLAY_LED_PIN) && defined(CYW43_WL_GPIO_LED_PIN)
+    // For Pico W devices we need to initialise the driver etc
+    cyw43_arch_init(); //Initialise the board LED for connection feedback
+    gpio_init(PLAY_LED_PIN);
+    gpio_set_dir(PLAY_LED_PIN, GPIO_OUT);
+    return PICO_OK;
+  #elif defined(PLAY_LED_PIN)
+    gpio_init(PLAY_LED_PIN);
+    gpio_set_dir(PLAY_LED_PIN, GPIO_OUT);
+    return PICO_OK;
+  #else
+    return PICO_ERROR_NOT_SUPPORTED;
+  #endif
+}
 
-    
-    while (true) {
-    
-        tud_task();
+// Button initialization
+int button_init(void) {
+  #if defined(PLAY_BUTTON_PIN)
+    gpio_init(PLAY_BUTTON_PIN);
+    gpio_set_dir(PLAY_BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(PLAY_BUTTON_PIN);
+    gpio_set_irq_enabled_with_callback(PLAY_BUTTON_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &gpio_button_cb);
+    return PICO_OK;
+  #else
+    return PICO_ERROR_NOT_SUPPORTED;
+  #endif
+}
 
-    }
+//--------------------------------------------------------------------+
+// Device callbacks
+//--------------------------------------------------------------------+
 
-    return 0;
+// Invoked when device is mounted
+void tud_mount_cb(void)
+{
+  blink_interval_ms = BLINK_MOUNTED;
+}
+
+// Invoked when device is unmounted
+void tud_umount_cb(void)
+{
+  blink_interval_ms = BLINK_NOT_MOUNTED;
+}
+
+// Invoked when usb bus is suspended
+// remote_wakeup_en : if host allow us  to perform remote wakeup
+// Within 7ms, device must draw an average of current less than 2.5 mA from bus
+void tud_suspend_cb(bool remote_wakeup_en)
+{
+  (void) remote_wakeup_en;
+  blink_interval_ms = BLINK_SUSPENDED;
+}
+
+// Invoked when usb bus is resumed
+void tud_resume_cb(void)
+{
+  blink_interval_ms = BLINK_MOUNTED;
+}
+
+//--------------------------------------------------------------------+
+// MIDI Task
+//--------------------------------------------------------------------+
+
+void midi_task(uint8_t msg[3])
+{
+  tud_midi_n_stream_write(0, 0, msg, 3);
+}
+
+uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity) {
+  static uint8_t msg[3];
+  msg[0] = channel;          // Note On - Channel n
+  msg[1] = note;             // Note Number
+  msg[2] = velocity;         // Velocity
+  return msg;
+}
+
+//--------------------------------------------------------------------+
+// BLINKING TASK
+//--------------------------------------------------------------------+
+// Turn the led on or off
+void pico_set_led(bool led_on, bool play_led) {
+  #if defined(PICO_DEFAULT_LED_PIN)
+    // Just set the GPIO on or off
+    gpio_put(PICO_DEFAULT_LED_PIN, led_on);
+  #elif defined(CYW43_WL_GPIO_LED_PIN) && play_led == false
+    // Pico W / Pico 2 W use the wireless chip LED
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+  #elif defined(PLAY_LED_PIN) && play_led == true
+    gpio_put(PLAY_LED_PIN, led_on);
+  #else
+    // No LED defined, do nothing
+  #endif
+}
+
+void status_led_blinking_task(bool play_led)
+{
+  static uint32_t start_ms = 0;
+  static bool led_state = false;
+
+  // Blink every interval ms
+  uint32_t now_ms = time_us_32() / 1000;
+  if (now_ms - start_ms < blink_interval_ms) return; // not enough time
+  start_ms = now_ms;
+
+  pico_set_led(led_state, play_led);
+  led_state = 1 - led_state; // toggle
 }
