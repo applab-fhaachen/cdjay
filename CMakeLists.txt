@@ -39,7 +39,11 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(cdjay cdjay.c usb_descriptors.c)
+add_executable(cdjay
+    cdjay.c
+    include/tinyusb/usb_descriptors.c
+    include/button/button.c
+)
 
 pico_set_program_name(cdjay "cdjay")
 pico_set_program_version(cdjay "0.1")
@@ -55,7 +59,8 @@ target_link_libraries(cdjay
 
 # Add the standard include files to the build
 target_include_directories(cdjay PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/tinyusb
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/button
 )
 
 # Add any user requested libraries
