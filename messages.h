@@ -1,5 +1,5 @@
 #include <stdint.h>
-#define MESSAGE_COUNT 6
+#define MESSAGE_COUNT 12
 
 typedef struct {
   uint Gpio;
@@ -16,6 +16,12 @@ MidiMsg_t rising_messages[MESSAGE_COUNT] = {
   {15, 0x90, 3, 127},//SEARCH_BWD, 
   {14, 0x90, 4, 127},//TRACK_SEARCH_FWD
   {13, 0x90, 5, 127},//TRACK_SEARCH_BWD
+  {14, 0x90, 6, 127},//In Cue
+  {13, 0x90, 7, 127},//Out Cue
+  {14, 0x90, 8, 127},//Reloop Exit
+  {13, 0x90, 0x0B, 127},//Cue Loop FWD
+  {14, 0x90, 0x0C, 127},//Cue Loop BWD
+  {13, 0x90, 10, 127},//Tempo Factor
 };
 
 //Off messages (velocity=0)
@@ -26,4 +32,10 @@ MidiMsg_t falling_messages[MESSAGE_COUNT] = {
   {15, 0x90, 3, 0},//SEARCH_BWD, 
   {14, 0x90, 4, 0},//TRACK_SEARCH_FWD
   {13, 0x90, 5, 0},//TRACK_SEARCH_BWD
+  {14, 0x90, 6, 0},//In Cue
+  {13, 0x90, 7, 0},//Out Cue
+  {14, 0x90, 8, 0},//Reloop Exit
+  {13, 0x90, 0x0B, 0},//Cue Loop FWD
+  {14, 0x90, 0x0C, 0},//Cue Loop BWD
+  {13, 0x90, 10, 0},//Tempo Factor
 };

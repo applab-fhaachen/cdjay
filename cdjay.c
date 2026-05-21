@@ -46,6 +46,7 @@ void status_led_blinking_task(bool play_led);
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
 int led_init(void);
 int button_init(void);
+void led_pause_task(bool play_led);
 
 int main() {
   board_init();
@@ -230,4 +231,8 @@ void status_led_blinking_task(bool play_led)
 
   pico_set_led(led_state, play_led);
   led_state = 1 - led_state; // toggle
+}
+
+void led_pause_task(bool play_led) {
+  pico_set_led(true, play_led);
 }
