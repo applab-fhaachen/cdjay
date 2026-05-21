@@ -7,7 +7,8 @@
 #include "bsp/board.h"
 #include "tusb.h"
 
-#include "messages.h"
+#include "bsp/board.h"
+#include "tusb.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -22,8 +23,6 @@
 #ifndef PLAY_BUTTON_PIN
 #define PLAY_BUTTON_PIN 18
 #endif
-
-//#define MIDI_MESSAGE_COUNT 15
 
 enum  {
   BLINK_NOT_MOUNTED = 250,
@@ -101,24 +100,16 @@ void gpio_button_cb(uint gpio, uint32_t events) {
     if (events & GPIO_IRQ_EDGE_FALL) {
       playing = !playing;
       message_sent = false; // Set message_sent to false to ensure midi signale will be send in the main loop.
-      for(uint8_t i = 0; i < MESSAGE_COUNT; i++){
-          if(rising_messages[i].Gpio == gpio){
-            msg[0] = rising_messages[i].channel; // Note Off - Channel 1
-            msg[1] = rising_messages[i].value;
-            msg[2] = rising_messages[i].velocity;        
-          }
-      }      
+      msg[0] = 0x90; // Note On - Channel 1
+      msg[1] = 0;
+      msg[2] = 127;
       // main loop will send `msg` once when it sees `message_sent == false`
     }
     else if (events & GPIO_IRQ_EDGE_RISE) {
       message_sent = false;
-      for(uint8_t i = 0; i < MESSAGE_COUNT; i++){
-          if(falling_messages[i].Gpio == gpio){
-            msg[0] = falling_messages[i].channel; // Note Off - Channel 1
-            msg[1] = falling_messages[i].value;
-            msg[2] = falling_messages[i].velocity;        
-          }
-      }
+      msg[0] = 0x80; // Note Off - Channel 1
+      msg[1] = 0;
+      msg[2] = 0;
       // main loop will send `msg` once when it sees `message_sent == false`
     }
   }
