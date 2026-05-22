@@ -6,9 +6,7 @@
 
 #include "bsp/board.h"
 #include "tusb.h"
-
-#include "bsp/board.h"
-#include "tusb.h"
+#include "button.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -47,6 +45,7 @@ uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
 int led_init(void);
 int button_init(void);
 void led_pause_task(bool play_led);
+void play_callback(button_t *b);
 
 int main() {
   board_init();
@@ -64,7 +63,11 @@ int main() {
   sleep_ms(5000);
   
   stdio_init_all();
-  
+  // init for button handling see: include/button/button.c
+  button_system_init();
+
+  button_t *play_button = create_button(PLAY_BUTTON_PIN, play_callback);
+
   // Signal: medium blink = calling tusb_init
   pico_set_led(true, false);
   sleep_ms(200);
@@ -94,28 +97,9 @@ int main() {
     }
   }
 }
-
-// button interrupt callback. The signal is send when button is pressed with full velocity
-void gpio_button_cb(uint gpio, uint32_t events) {
-  if (gpio == PLAY_BUTTON_PIN) {
-    if (events & GPIO_IRQ_EDGE_FALL) {
-      playing = !playing;
-      message_sent = false; // Set message_sent to false to ensure midi signale will be send in the main loop.
-      msg[0] = 0x90; // Note On - Channel 1
-      msg[1] = 0;
-      msg[2] = 127;
-      // main loop will send `msg` once when it sees `message_sent == false`
-    }
-    else if (events & GPIO_IRQ_EDGE_RISE) {
-      message_sent = false;
-      msg[0] = 0x80; // Note Off - Channel 1
-      msg[1] = 0;
-      msg[2] = 0;
-      // main loop will send `msg` once when it sees `message_sent == false`
-    }
-  }
-};
-
+//--------------------------------------------------------------------+
+// initialization
+//--------------------------------------------------------------------+
 // LED initialization
 int led_init(void) {
   #if defined(PICO_DEFAULT_LED_PIN)
@@ -146,7 +130,6 @@ int button_init(void) {
     gpio_init(PLAY_BUTTON_PIN);
     gpio_set_dir(PLAY_BUTTON_PIN, GPIO_IN);
     gpio_pull_up(PLAY_BUTTON_PIN);
-    gpio_set_irq_enabled_with_callback(PLAY_BUTTON_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &gpio_button_cb);
     return PICO_OK;
   #else
     return PICO_ERROR_NOT_SUPPORTED;
@@ -183,6 +166,26 @@ void tud_resume_cb(void)
 {
   blink_interval_ms = BLINK_MOUNTED;
 }
+
+// button interrupt callback. The signal is send when button is pressed with full velocity
+void play_callback(button_t *b) {
+
+  if (!b -> state) { // Button is pressed (active low)
+    playing = !playing;
+    message_sent = false; // Set message_sent to false to ensure midi signale will be send in the main loop.
+    msg[0] = 0x90; // Note On - Channel 1
+    msg[1] = 0;
+    msg[2] = 127;
+    // main loop will send `msg` once when it sees `message_sent == false`
+  }
+  else if (b -> state) {
+    message_sent = false;
+    msg[0] = 0x80; // Note Off - Channel 1
+    msg[1] = 0;
+    msg[2] = 0;
+    // main loop will send `msg` once when it sees `message_sent == false`
+  }
+};
 
 //--------------------------------------------------------------------+
 // MIDI Task
