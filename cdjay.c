@@ -7,6 +7,7 @@
 #include "bsp/board.h"
 #include "tusb.h"
 #include "button.h"
+#include "messages.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -39,13 +40,13 @@ uint8_t msg[3];
 // This is an example for a state of the play Button
 void led_blinking_task(void);
 void midi_task(uint8_t msg[3]);
+void button_cb(button_t *b);
 void pico_set_led(bool led_on, bool play_led);
 void status_led_blinking_task(bool play_led);
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
 int led_init(void);
 int button_init(void);
 void led_pause_task(bool play_led);
-void play_callback(button_t *b);
 
 int main() {
   board_init();
@@ -66,7 +67,7 @@ int main() {
   // init for button handling see: include/button/button.c
   button_system_init();
 
-  button_t *play_button = create_button(PLAY_BUTTON_PIN, play_callback);
+  button_t *play_button = create_button(PLAY_BUTTON_PIN, button_cb);
 
   // Signal: medium blink = calling tusb_init
   pico_set_led(true, false);
@@ -167,25 +168,21 @@ void tud_resume_cb(void)
   blink_interval_ms = BLINK_MOUNTED;
 }
 
-// button interrupt callback. The signal is send when button is pressed with full velocity
-void play_callback(button_t *b) {
+void button_cb(button_t *b) {
+  if (!b) return;
 
-  if (!b -> state) { // Button is pressed (active low)
+  const MidiMsg_t *message = find_message(b->pin, !b->state);
+  if (!message) return;
+
+  if (b->pin == PLAY_BUTTON_PIN && !b->state) {
     playing = !playing;
-    message_sent = false; // Set message_sent to false to ensure midi signale will be send in the main loop.
-    msg[0] = 0x90; // Note On - Channel 1
-    msg[1] = 0;
-    msg[2] = 127;
-    // main loop will send `msg` once when it sees `message_sent == false`
   }
-  else if (b -> state) {
-    message_sent = false;
-    msg[0] = 0x80; // Note Off - Channel 1
-    msg[1] = 0;
-    msg[2] = 0;
-    // main loop will send `msg` once when it sees `message_sent == false`
-  }
-};
+
+  msg[0] = message->channel;
+  msg[1] = message->value;
+  msg[2] = message->velocity;
+  message_sent = false;
+}
 
 //--------------------------------------------------------------------+
 // MIDI Task
