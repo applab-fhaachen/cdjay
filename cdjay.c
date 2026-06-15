@@ -68,6 +68,7 @@ int main() {
   button_system_init();
 
   button_t *play_button = create_button(PLAY_BUTTON_PIN, button_cb);
+  button_t *cue_button = create_button(CUE_BUTTON_PIN, button_cb);
 
   // Signal: medium blink = calling tusb_init
   pico_set_led(true, false);
@@ -131,10 +132,17 @@ int button_init(void) {
     gpio_init(PLAY_BUTTON_PIN);
     gpio_set_dir(PLAY_BUTTON_PIN, GPIO_IN);
     gpio_pull_up(PLAY_BUTTON_PIN);
-    return PICO_OK;
   #else
     return PICO_ERROR_NOT_SUPPORTED;
   #endif
+  #if defined(CUE_BUTTON_PIN)
+    gpio_init(CUE_BUTTON_PIN);
+    gpio_set_dir(CUE_BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(CUE_BUTTON_PIN);
+  #else
+    return PICO_ERROR_NOT_SUPPORTED;
+  #endif
+    return PICO_OK;
 }
 
 //--------------------------------------------------------------------+
@@ -176,6 +184,10 @@ void button_cb(button_t *b) {
 
   if (b->pin == PLAY_BUTTON_PIN && !b->state) {
     playing = !playing;
+  }
+  else if(b->pin == CUE_BUTTON_PIN && !b->state) {
+    // If the cue button is pressed, pause the blinking and turn on the LED
+    led_pause_task(true);
   }
 
   msg[0] = message->channel;
