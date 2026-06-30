@@ -14,7 +14,4 @@
 
 
 
-PT6302 vfd(CLKB, RSTB, CSB, DIN);
-
-
 void displaySetup();
