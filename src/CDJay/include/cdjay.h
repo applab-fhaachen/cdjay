@@ -9,3 +9,6 @@
 #define Product "Pioneer CDJ-850"
 #define ManufacturerString "Pioneer Corporation."
 
+#define HIDDescription "PIONEER CDJ-850 HID"
+#define MIDIDescription "PIONEER CDJ-850 MIDI"
+

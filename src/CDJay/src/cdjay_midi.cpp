@@ -21,7 +21,7 @@ byte note_sequence[] = {
 };
 
 void midiSetup() {
-    usb_midi.setStringDescriptor("PIONEER CDJ-850 MIDI");
+    usb_midi.setStringDescriptor(MIDIDescription);
 
   // Initialize MIDI, and listen to all MIDI channels
   // This will also call usb_midi's begin()

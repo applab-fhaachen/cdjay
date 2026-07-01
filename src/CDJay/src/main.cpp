@@ -3,19 +3,23 @@
 #include "cdjay_midi.h"
 #include "cdjay_display.h"
 #include "cdjay_audio.h"
+#include "cdjay_hid.h"
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
-// Manual begin() is required on core without built-in support e.g. mbed rp2040
+  TinyUSBDevice.clearConfiguration();
+
+  // Manual begin() is required on core without built-in support e.g. mbed rp2040
   if (!TinyUSBDevice.isInitialized()) {
     TinyUSBDevice.begin(0);
   }
-
+  
   // Serial.begin(115200);
   audioSetup();
   midiSetup();
-  // hidSetup();
+  hidSetup();
   displaySetup();
 
 
@@ -25,7 +29,7 @@ void setup() {
     delay(10);
     TinyUSBDevice.attach();
   }
-
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void loop() {
@@ -41,7 +45,7 @@ void loop() {
 
   audioLoop();
   midiLoop();
-
+  hidLoop();
 
 }
 

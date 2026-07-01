@@ -1,3 +1,4 @@
+#include "cdjay.h"
 #include "cdjay_audio.h"
 #include <AudioTools.h>
 #include "AudioTools/Communication/USB/USBAudioStream.h"
@@ -13,6 +14,11 @@ void audioSetup() {
 
   auto config = audioIn.defaultConfig(RX_MODE);
   config.copyFrom(audioInfo);
+  audioIn.setStringDescriptor(Product);
+  config.manufacturer = Manufacturer;
+  config.vid = VID;
+  config.pid = PID;
+  config.product = Product;
   audioIn.begin(config);
 
 
