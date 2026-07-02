@@ -42,6 +42,7 @@ pico_sdk_init()
 add_executable(cdjay
     cdjay.c
     include/tinyusb/usb_descriptors.c
+    include/tinyusb/usb_audio_stub.c
     include/button/button.c
 )
 

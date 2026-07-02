@@ -1,252 +1,254 @@
 /*
- * The MIT License (MIT)
+ * usb_descriptors.c
  *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * CDJ-850 USB Descriptor Replica
+ * Extracted from Wireshark/USBPcap capture + verified with macOS System Information.
+ * Configuration descriptor is 1:1 identical to the real CDJ-850 (198 bytes).
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Interface layout (5 interfaces, matching original):
+ *   IF 0         Audio Control (UAC1) - USB→Speaker audio path, iIF="PIONEER CDJ-850"
+ *   IF 1 Alt 0   Audio Streaming, 0 endpoints
+ *   IF 1 Alt 1   Audio Streaming - EP 0x01 OUT Isoc 200B/1ms, PCM 44.1/48kHz stereo
+ *   IF 2         Audio Control (UAC1) - dummy AC header anchoring the MIDI IF, iIF="PIONEER CDJ-850 MIDI"
+ *   IF 3         MIDI Streaming - EP 0x83 IN Bulk 64B (send-only), iIF="USB MIDI Interface2"
+ *   IF 4         HID (Vendor-defined) - EP 0x06 OUT Intr 36B/1ms + EP 0x87 IN Intr 20B/1ms, iIF="PIONEER CDJ-850 HID"
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
+ * Notes:
+ *   - bDeviceClass = 0x00 (old-style composite, NOT 0xEF/IAD - this was the bug in the earlier version)
+ *   - MIDI has only one bulk endpoint IN (0x83). The real CDJ-850 only sends MIDI to the host,
+ *     it never receives MIDI. TinyUSB MIDI driver initialises with ep_in=0x83 / ep_out=0,
+ *     so tud_midi_n_stream_write() works fine. Receiving MIDI from host is not supported.
+ *   - Audio interfaces (0-2) are present in the descriptor for correct CDJ-850 recognition,
+ *     but not implemented in TinyUSB (CFG_TUD_AUDIO=0). macOS will show an Audio device entry
+ *     but DJ software (rekordbox, djay, Serato) does not activate the isochronous audio endpoint.
+ *   - HID Report Descriptor is the original 52-byte vendor descriptor (Usage Page 0xFFA0/0xFFA1),
+ *     not the simplified 8-byte placeholder. IN report = 20 bytes, OUT report = 36 bytes.
+ *   - iSerialNumber = 0x00 (no serial string, matching CDJ-850 original)
  */
 
-#include "bsp/board_api.h"
-#include "tusb.h"
+#include "bsp/board_api.h" 
+#include "tusb.h"   
 
-/* A combination of interfaces must have a unique product id, since PC will save device driver after the first plug.
- * Same VID/PID with different interface e.g MSC (first), then CDC (later) will possibly cause system error on PC.
- *
- * Auto ProductID layout's Bitmap:
- *   [MSB]         HID | MSC | CDC          [LSB]
- */
-#define PID_MAP(itf, n)  ((CFG_TUD_##itf) ? (1 << (n)) : 0)
-#define USB_PID           (0x4000 | PID_MAP(CDC, 0) | PID_MAP(MSC, 1) | PID_MAP(HID, 2) | \
-                           PID_MAP(MIDI, 3) | PID_MAP(VENDOR, 4) )
 //--------------------------------------------------------------------+
-// Device Descriptors
+// Device Descriptor
 //--------------------------------------------------------------------+
-
+// CRITICAL FIX: bDeviceClass must be 0x00, NOT 0xEF.
+// The CDJ-850 uses pre-IAD composite (interface-level class declaration).
+// Using 0xEF (IAD composite) caused macOS to reject the device because
+// it expected IAD descriptors in the configuration that aren't present.
 tusb_desc_device_t const device_desc = {
-    .bLength = sizeof(tusb_desc_device_t),
-    .bDescriptorType = TUSB_DESC_DEVICE,
-    .bcdUSB = 0x0200,
+    .bLength            = sizeof(tusb_desc_device_t),
+    .bDescriptorType    = TUSB_DESC_DEVICE,
+    .bcdUSB             = 0x0200,
 
-    .bDeviceClass = 0xEF,
-    .bDeviceSubClass = 0x02,
-    .bDeviceProtocol = 0x01,
-    .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
+    .bDeviceClass       = 0x00,   // Must be 0x00, NOT 0xEF - see note above
+    .bDeviceSubClass    = 0x00,
+    .bDeviceProtocol    = 0x00,
+    .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
 
-    .idVendor = 0x08E4, // PIONEER Corporation.
-    .idProduct = 0x0157,
-    .bcdDevice = 0x0112,
+    .idVendor           = 0x08E4,  // Pioneer Corporation
+    .idProduct          = 0x0159,  // CDJ-850
+    .bcdDevice          = 0x0112,  // firmware version from original
 
-    .iManufacturer = 0x01,
-    .iProduct = 0x02,
-    .iSerialNumber = 0x03,
+    .iManufacturer      = 0x01,
+    .iProduct           = 0x02,
+    .iSerialNumber      = 0x00,    // CDJ-850 has no serial string (iSerialNumber=0 = none)
     .bNumConfigurations = 0x01
 };
 
-// Invoked when received GET DEVICE DESCRIPTOR
-// Application return pointer to descriptor
-uint8_t const * tud_descriptor_device_cb(void) {
-  return (uint8_t const *) &device_desc;
+uint8_t const *tud_descriptor_device_cb(void) {
+    return (uint8_t const *)&device_desc;
 }
 
 //--------------------------------------------------------------------+
-// Configuration Descriptor
+// HID Report Descriptor (52 bytes)
+// Verbatim from Wireshark capture (packets #100 + #202), confirmed by
+// macOS System Information raw descriptor dump.
+// Vendor-defined, Usage Page 0xFFA0 / 0xFFA1 (no standard usages).
+// IN  report: 20 bytes (EP 0x87, Interrupt IN)
+// OUT report: 36 bytes (EP 0x06, Interrupt OUT)
 //--------------------------------------------------------------------+
-enum {
-  ITF_NUM_MIDI = 0,
-  ITF_NUM_MIDI_STREAMING,
-  ITF_NUM_HID,
-  ITF_NUM_TOTAL
+uint8_t const desc_hid_report[] = {
+    0x06, 0xA0, 0xFF,       // Usage Page (Vendor Defined 0xFFA0)
+    0x09, 0x01,             // Usage (0x01)
+    0xA1, 0x01,             // Collection (Application)
+    0x09, 0x02,             //   Usage (0x02)
+    0xA1, 0x00,             //   Collection (Physical)
+    0x06, 0xA1, 0xFF,       //     Usage Page (Vendor Defined 0xFFA1)
+    0x09, 0x03,             //     Usage (0x03)
+    0x09, 0x04,             //     Usage (0x04)
+    0x15, 0x80,             //     Logical Minimum (-128)
+    0x25, 0x7F,             //     Logical Maximum (127)
+    0x35, 0x00,             //     Physical Minimum (0)
+    0x45, 0xFF,             //     Physical Maximum (255)
+    0x75, 0x08,             //     Report Size (8)
+    0x95, 0x14,             //     Report Count (20)   -> 20-byte IN report
+    0x81, 0x02,             //     Input (Data, Var, Abs)
+    0x09, 0x05,             //     Usage (0x05)
+    0x09, 0x06,             //     Usage (0x06)
+    0x15, 0x80,             //     Logical Minimum (-128)
+    0x25, 0x7F,             //     Logical Maximum (127)
+    0x35, 0x00,             //     Physical Minimum (0)
+    0x45, 0xFF,             //     Physical Maximum (255)
+    0x75, 0x08,             //     Report Size (8)
+    0x95, 0x24,             //     Report Count (36)   -> 36-byte OUT report
+    0x91, 0x02,             //     Output (Data, Var, Abs)
+    0xC0,                   //   End Collection
+    0xC0                    // End Collection
 };
 
-#define CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_MIDI_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
+uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
+    (void)instance;
+    return desc_hid_report;
+}
 
-#if CFG_TUSB_MCU == OPT_MCU_LPC175X_6X || CFG_TUSB_MCU == OPT_MCU_LPC177X_8X || CFG_TUSB_MCU == OPT_MCU_LPC40XX
-  // LPC 17xx and 40xx endpoint type (bulk/interrupt/iso) are fixed by its number
-  // 0 control, 1 In, 2 Bulk, 3 Iso, 4 In etc ...
-  #define EPNUM_MIDI_OUT  0x02
-  #define EPNUM_MIDI_IN   0x82
+//--------------------------------------------------------------------+
+// Configuration Descriptor (198 bytes)
+// Verbatim reconstruction - verified byte-for-byte against Wireshark
+// capture. The HID interface block is emitted with TinyUSB constants so
+// the host sees a structurally correct HID interface descriptor.
+//--------------------------------------------------------------------+
+#define CDJ_HID_INOUT_DESCRIPTOR(_itfnum, _stridx, _epout, _epin) \
+  9, TUSB_DESC_INTERFACE, _itfnum, 0, 2, TUSB_CLASS_HID, 0, 0, _stridx, \
+  9, HID_DESC_TYPE_HID, 0x10, 0x01, 0, 1, HID_DESC_TYPE_REPORT, 0x34, 0x00, \
+  7, TUSB_DESC_ENDPOINT, _epout, TUSB_XFER_INTERRUPT, 0x24, 0x00, 0x01, \
+  7, TUSB_DESC_ENDPOINT, _epin, TUSB_XFER_INTERRUPT, 0x14, 0x00, 0x01
 
-#elif CFG_TUSB_MCU == OPT_MCU_CXD56
-  // CXD56 USB driver has fixed endpoint type (bulk/interrupt/iso) and direction (IN/OUT) by its number
-  // 0 control (IN/OUT), 1 Bulk (IN), 2 Bulk (OUT), 3 In (IN), 4 Bulk (IN), 5 Bulk (OUT), 6 In (IN)
-  #define EPNUM_MIDI_OUT  0x02
-  #define EPNUM_MIDI_IN   0x81
-
-#elif CFG_TUD_ENDPOINT_ONE_DIRECTION_ONLY
-  // MCUs that don't support a same endpoint number with different direction IN and OUT defined in tusb_mcu.h
-  //    e.g EP1 OUT & EP1 IN cannot exist together
-  #define EPNUM_MIDI_OUT  0x01
-  #define EPNUM_MIDI_IN   0x82
-
-#else
-  #define EPNUM_MIDI_OUT  0x01
-  #define EPNUM_MIDI_IN   0x81
-#endif
-
-// HID endpoints (choose values that don't collide with MIDI)
-#define EPNUM_HID_OUT 0x03
-#define EPNUM_HID_IN  0x83
-
-// HID Report Descriptor (placed before configuration descriptors)
-// Vendor-defined HID: 8 bytes IN, 8 bytes OUT
-static uint8_t const hid_report_descriptor[] = {
-  0x06, 0x00, 0xFF, // Usage Page (Vendor Defined 0xFF00)
-  0x09, 0x01,       // Usage (0x01)
-  0xA1, 0x01,       // Collection (Application)
-  0x15, 0x00,       // Logical Minimum (0)
-  0x26, 0xFF, 0x00, // Logical Maximum (255)
-  0x75, 0x08,       // Report Size (8)
-  0x95, 0x08,       // Report Count (8)
-  0x09, 0x01,       // Usage
-  0x81, 0x02,       // Input (Data,Var,Abs)
-  0x09, 0x01,       // Usage
-  0x91, 0x02,       // Output (Data,Var,Abs)
-  0xC0              // End Collection
-};
-
-// Provide HID report descriptor to TinyUSB
-uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance)
+static uint8_t const desc_configuration[] =
 {
-  (void) instance;
-  return hid_report_descriptor;
-}
+    // ----------------------------------------------------------------
+    // Configuration Header
+    // wTotalLength=198, bNumInterfaces=5, bConfigurationValue=1,
+    // iConfiguration=0, bmAttributes=0xC0 (self-powered), bMaxPower=0mA
+    // ----------------------------------------------------------------
+    0x09, 0x02, 0xC6, 0x00, 0x05, 0x01, 0x00, 0xC0, 0x00,
 
-//--------------------------------------------------------------------+
-// HID Callbacks (stubs)
-// Provide minimal implementations for control transfers (GET/SET REPORT)
-//--------------------------------------------------------------------+
-uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
-{
-  (void) instance; (void) report_id; (void) report_type; (void) buffer; (void) reqlen;
-  // No data to send (return 0 length)
-  return 0;
-}
+    // ----------------------------------------------------------------
+    // Interface 0: Audio Control
+    // bNumEndpoints=0, class=Audio(1), sub=Control(1), proto=0, iIF=3
+    // ----------------------------------------------------------------
+    0x09, 0x04, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x03,
 
-void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
-{
-  (void) instance; (void) report_id; (void) report_type; (void) buffer; (void) bufsize;
-  // No-op: application can handle received OUT reports here
-}
+    // CS: AC Header - bcdADC=1.00, wTotalLength=30, bInCollection=1, baIF[0]=1
+    0x09, 0x24, 0x01, 0x00, 0x01, 0x1E, 0x00, 0x01, 0x01,
 
-static uint8_t const desc_fs_configuration[] = {
-  // Config number, interface count, string index, total length, attribute, power in mA
-  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
+    // CS: Input Terminal - ID=1, type=USB_STREAMING(0x0101), 2ch (L+R, config=0x0003)
+    0x0C, 0x24, 0x02, 0x01, 0x01, 0x01, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00,
 
-  // MIDI Interface
-  TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 0, EPNUM_MIDI_OUT, (0x80 | EPNUM_MIDI_IN), 64),
+    // CS: Output Terminal - ID=2, type=SPEAKER(0x0301), srcID=1
+    0x09, 0x24, 0x03, 0x02, 0x01, 0x03, 0x00, 0x01, 0x00,
 
-  // HID Interface (Vendor-defined, 8-byte reports in/out)
-  TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID, 0, 0, sizeof(hid_report_descriptor), EPNUM_HID_OUT, EPNUM_HID_IN, 64, 10)
+    // ----------------------------------------------------------------
+    // Interface 1, Alt 0: Audio Streaming (idle, no endpoints)
+    // ----------------------------------------------------------------
+    0x09, 0x04, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00,
+
+    // ----------------------------------------------------------------
+    // Interface 1, Alt 1: Audio Streaming (active - PCM audio to speakers)
+    // bNumEndpoints=1
+    // ----------------------------------------------------------------
+    0x09, 0x04, 0x01, 0x01, 0x01, 0x01, 0x02, 0x00, 0x00,
+
+    // CS: AS General - bTerminalLink=1, bDelay=0, wFormatTag=PCM(0x0001)
+    0x07, 0x24, 0x01, 0x01, 0x00, 0x01, 0x00,
+
+    // CS: Format Type I - 2ch, 16-bit, 2 discrete sample rates
+    // tSamFreq[0]=44100Hz, tSamFreq[1]=48000Hz
+    0x0E, 0x24, 0x02, 0x01, 0x02, 0x02, 0x10, 0x02,
+    0x44, 0xAC, 0x00,   // 44100 Hz (little-endian 3-byte)
+    0x80, 0xBB, 0x00,   // 48000 Hz (little-endian 3-byte)
+
+    // EP 0x01 OUT - Isochronous, wMaxPacketSize=200, bInterval=1ms
+    0x09, 0x05, 0x01, 0x01, 0xC8, 0x00, 0x01, 0x00, 0x00,
+
+    // CS: AS Endpoint - sample-freq control, no lock delay
+    0x07, 0x25, 0x01, 0x01, 0x00, 0x00, 0x00,
+
+    // ----------------------------------------------------------------
+    // Interface 2: Audio Control (MIDI anchor)
+    // Required by USB Audio Class 1.0: every MIDIStreaming interface
+    // must be "owned" by an AudioControl interface. bNumEndpoints=0,
+    // iIF=4 ("PIONEER CDJ-850 MIDI")
+    // ----------------------------------------------------------------
+    0x09, 0x04, 0x02, 0x00, 0x00, 0x01, 0x01, 0x00, 0x04,
+
+    // CS: AC Header - bcdADC=1.00, wTotalLength=9, bInCollection=1, baIF[0]=3
+    0x09, 0x24, 0x01, 0x00, 0x01, 0x09, 0x00, 0x01, 0x03,
+
+    // ----------------------------------------------------------------
+    // Interface 3: MIDI Streaming
+    // bNumEndpoints=1 (IN only - CDJ-850 only sends MIDI to host)
+    // iIF=5 ("USB MIDI Interface2")
+    // ----------------------------------------------------------------
+    0x09, 0x04, 0x03, 0x00, 0x01, 0x01, 0x03, 0x00, 0x05,
+
+    // CS: MS Header - bcdMSC=1.00, wTotalLength=36
+    // (non-standard: CDJ-850 includes the std EP descriptor in this count)
+    0x07, 0x24, 0x01, 0x00, 0x01, 0x24, 0x00,
+
+    // CS: MIDI OUT Jack EMBEDDED - ID=1, 1 pin, src=ExternalJack(ID=2)/pin1
+    // This is the jack whose output goes into EP 0x83 toward the host
+    0x09, 0x24, 0x03, 0x01, 0x01, 0x01, 0x02, 0x01, 0x00,
+
+    // CS: MIDI IN Jack EXTERNAL - ID=2
+    // Logical "external" MIDI source that feeds into Embedded Jack 1
+    0x06, 0x24, 0x02, 0x02, 0x02, 0x00,
+
+    // EP 0x83 IN - Bulk, wMaxPacketSize=64, bInterval=0 (Bulk has no interval)
+    0x09, 0x05, 0x83, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
+
+    // CS: MIDI Endpoint - bNumEmbMIDIJack=1, assoc=JackID 1
+    // Note: 5 bytes (non-standard, should be 7) - kept to match original
+    0x05, 0x25, 0x01, 0x01, 0x01,
+
+    // ----------------------------------------------------------------
+    // Interface 4: HID (Vendor-defined)
+    // bNumEndpoints=2, class=HID(3), sub=0, proto=0, iIF=6
+    // ----------------------------------------------------------------
+    CDJ_HID_INOUT_DESCRIPTOR(4, 6, 0x06, 0x87),
 };
 
-#if TUD_OPT_HIGH_SPEED
-static uint8_t const desc_hs_configuration[] = {
-  // Config number, interface count, string index, total length, attribute, power in mA
-  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
-
-  // MIDI Interface
-  TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 0, EPNUM_MIDI_OUT, (0x80 | EPNUM_MIDI_IN), 512),
-
-  // HID Interface (HS)
-  TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID, 0, 0, sizeof(hid_report_descriptor), EPNUM_HID_OUT, EPNUM_HID_IN, 64, 10)
-};
-#endif
-
-// Invoked when received GET CONFIGURATION DESCRIPTOR
-// Application return pointer to descriptor
-// Descriptor contents must exist long enough for transfer to complete
-uint8_t const * tud_descriptor_configuration_cb(uint8_t index) {
-  (void) index; // for multiple configurations
-
-#if TUD_OPT_HIGH_SPEED
-  // Although we are highspeed, host may be fullspeed.
-  return (tud_speed_get() == TUSB_SPEED_HIGH) ?  desc_hs_configuration : desc_fs_configuration;
-#else
-  return desc_fs_configuration;
-#endif
+uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
+    (void)index;
+    return desc_configuration;
 }
 
 //--------------------------------------------------------------------+
 // String Descriptors
+// Matched to CDJ-850 original (from Wireshark + macOS System Info)
 //--------------------------------------------------------------------+
-
-// String Descriptor Index
-enum {
-  STRID_LANGID = 0,
-  STRID_MANUFACTURER,
-  STRID_PRODUCT,
-  STRID_SERIAL,
-};
-
-// array of pointer to string descriptors
 static char const *string_desc_arr[] = {
-  (const char[]) { 0x09, 0x04 },  // 0: is supported language is English (0x0409)
-  "PIONEER Corporation.",         // 1: Manufacturer
-  "PIONEER CDJ-850",              // 2: Product
-  NULL,                           // 3: Serials will use unique ID if possible
+    (const char[]){ 0x09, 0x04 },   // 0: Language ID = English (US) 0x0409
+    "PIONEER Corporation.",          // 1: iManufacturer
+    "PIONEER CDJ-850",               // 2: iProduct
+    "PIONEER CDJ-850",               // 3: iInterface - IF 0 (Audio Control)
+    "PIONEER CDJ-850 MIDI",          // 4: iInterface - IF 2 (Audio Control/MIDI anchor)
+    "USB MIDI Interface2",           // 5: iInterface - IF 3 (MIDI Streaming)
+    "PIONEER CDJ-850 HID",           // 6: iInterface - IF 4 (HID)
 };
 
 static uint16_t _desc_str[32 + 1];
 
-// Invoked when received GET STRING DESCRIPTOR request
-// Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
-  (void) langid;
-  size_t chr_count;
+    (void)langid;
+    size_t chr_count;
 
-  switch ( index ) {
-    case STRID_LANGID:
-      memcpy(&_desc_str[1], string_desc_arr[0], 2);
-      chr_count = 1;
-      break;
+    if (index == 0) {
+        memcpy(&_desc_str[1], string_desc_arr[0], 2);
+        chr_count = 1;
+    } else {
+        if (index >= sizeof(string_desc_arr) / sizeof(string_desc_arr[0])) {
+            return NULL;
+        }
+        const char *str = string_desc_arr[index];
+        chr_count = strlen(str);
+        const size_t max_count = sizeof(_desc_str) / sizeof(_desc_str[0]) - 1;
+        if (chr_count > max_count) chr_count = max_count;
+        for (size_t i = 0; i < chr_count; i++) {
+            _desc_str[1 + i] = str[i];
+        }
+    }
 
-    case STRID_SERIAL:
-      chr_count = board_usb_get_serial(_desc_str + 1, 32);
-      break;
-
-    default:
-      // Note: the 0xEE index string is a Microsoft OS 1.0 Descriptors.
-      // https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-defined-usb-descriptors
-
-      if (!(index < sizeof(string_desc_arr) / sizeof(string_desc_arr[0]))) {
-        return NULL;
-      }
-
-      const char *str = string_desc_arr[index];
-
-      // Cap at max char
-      chr_count = strlen(str);
-      const size_t max_count = sizeof(_desc_str) / sizeof(_desc_str[0]) - 1; // -1 for string type
-      if ( chr_count > max_count ) {
-        chr_count = max_count;
-      }
-
-      // Convert ASCII string into UTF-16
-      for ( size_t i = 0; i < chr_count; i++ ) {
-        _desc_str[1 + i] = str[i];
-      }
-      break;
-  }
-
-  // first byte is length (including header), second byte is string type
-  _desc_str[0] = (uint16_t) ((TUSB_DESC_STRING << 8) | (2 * chr_count + 2));
-
-  return _desc_str;
+    _desc_str[0] = (uint16_t)((TUSB_DESC_STRING << 8) | (2 * chr_count + 2));
+    return _desc_str;
 }

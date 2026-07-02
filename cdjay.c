@@ -195,6 +195,40 @@ void button_cb(button_t *b) {
   msg[2] = message->velocity;
   message_sent = false;
 }
+//--------------------------------------------------------------------+
+// HID Task
+//--------------------------------------------------------------------+
+// Invoked when received GET_REPORT control request
+// Application must fill buffer report's content and return its length.
+// Return zero will cause the stack to STALL request
+uint16_t tud_hid_get_report_cb(
+    uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen) {
+  // TODO not Implemented
+  (void)instance;
+  (void)report_id;
+  (void)report_type;
+  (void)buffer;
+  (void)reqlen;
+
+  return 0;
+}
+void tud_hid_set_report_cb(
+    uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize) {
+  (void)instance;
+
+  if (report_type == HID_REPORT_TYPE_OUTPUT) {
+      //TODO define what to do with the received data. For now, we just print it to the console.
+      printf("Received HID report: ");
+    }
+}
+
+// Invoked when sent REPORT successfully to host
+// Application can use this to send the next report
+// Note: For composite reports, report[0] is report ID
+void tud_hid_report_complete_cb(uint8_t instance, uint8_t const *report, uint16_t len) {
+  return; // Not used in this example
+}
+
 
 //--------------------------------------------------------------------+
 // MIDI Task
@@ -221,7 +255,7 @@ void pico_set_led(bool led_on, bool play_led) {
   #if defined(PICO_DEFAULT_LED_PIN)
     // Just set the GPIO on or off
     gpio_put(PICO_DEFAULT_LED_PIN, led_on);
-  #elif defined(CYW43_WL_GPIO_LED_PIN) && play_led == false
+  #elif defined(CYW43_WL_GPIO_LED_PIN)
     // Pico W / Pico 2 W use the wireless chip LED
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
   #elif defined(PLAY_LED_PIN) && play_led == true

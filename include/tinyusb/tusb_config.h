@@ -103,8 +103,18 @@
 #define CFG_TUD_VENDOR            0
 
 // MIDI FIFO size of TX and RX
-#define CFG_TUD_MIDI_RX_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
-#define CFG_TUD_MIDI_TX_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#define CFG_TUD_MIDI_EP_BUFSIZE   64
+#define CFG_TUD_MIDI_RX_BUFSIZE   64
+#define CFG_TUD_MIDI_TX_BUFSIZE   64
+#define CFG_TUD_HID_EP_BUFSIZE    64
+
+// ====================================================================
+// CRITICAL FIX FOR PIONEER INTERFACE SHIFTING
+// ====================================================================
+// TinyUSB anweisen, die internen Interface-IDs an den echten Descriptor anzupassen.
+// Ohne diese Definitionen nimmt TinyUSB an, MIDI sei IF 0 und HID sei IF 1.
+#define CFG_TUD_MIDI_ITF_NUM      3  // Verknüpft TinyUSB-MIDI mit Interface #3
+#define CFG_TUD_HID_ITF_NUM       4  // Verknüpft TinyUSB-HID mit Interface #4
 
 #ifdef __cplusplus
  }
