@@ -1,3 +1,11 @@
+/*
+
+  TODO: The MIDI-Interface as set up here is bidirectional, whereas the CDJ-850 Interface seems to be unidirectional (CDJ->Host) only. Don't know if this causes trouble because of the slightly different USB-Descriptors.
+
+*/
+
+
+
 #include "cdjay_midi.h"
 
 // USB MIDI object
