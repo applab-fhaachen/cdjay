@@ -32,6 +32,37 @@ enum  {
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 const uint LED_PIN = PLAY_LED_PIN;
 
+// ----------------------------------------------------------------
+// HID report state (20 bytes, vendor-defined Usage Page 0xFFA0/0xFFA1)
+// Layout we define ourselves - the host (DJay etc.) interprets
+// these as described in the CDJ-850 HID protocol:
+//   Byte 0:  button bitfield  (bit 0 = PLAY, bit 1 = CUE, ...)
+//   Byte 1:  button bitfield  (next 8 buttons)
+//   Byte 2+: reserved / jog wheel / pitch (fill in once you have
+//            a detailed button-press capture to map the bits)
+//
+// NOTE: for software that actually understands CDJ-850 HID natively
+// (rekordbox in HID mode) the bit positions must match the real device.
+// Until you have a full mapping capture, these positions are placeholders.
+// ----------------------------------------------------------------
+static uint8_t hid_in_report[20] = { 0 };
+
+// Map each button GPIO to its bit position in hid_in_report[].
+// Extend this table as you add more buttons.
+typedef struct {
+    uint    gpio;
+    uint8_t byte_index;   // which byte in hid_in_report
+    uint8_t bit_mask;     // which bit in that byte
+} HidButtonMap_t;
+ 
+static const HidButtonMap_t hid_button_map[] = {
+    { PLAY_BUTTON_PIN, 0, (1 << 0) },   // byte 0, bit 0
+    { CUE_BUTTON_PIN,  0, (1 << 1) },   // byte 0, bit 1
+    // add more here as you discover the mapping from capture
+};
+#define HID_BUTTON_MAP_COUNT (sizeof(hid_button_map) / sizeof(hid_button_map[0]))
+
+
 // Status variables
 bool playing = false; //just for testing if button intterupts work as expected
 static bool message_sent = true; //just for testing. Default is true to avoid sending messages.
@@ -40,6 +71,7 @@ uint8_t msg[3];
 // This is an example for a state of the play Button
 void led_blinking_task(void);
 void midi_task(uint8_t msg[3]);
+void hid_task(void);
 void button_cb(button_t *b);
 void pico_set_led(bool led_on, bool play_led);
 void status_led_blinking_task(bool play_led);
@@ -88,7 +120,8 @@ int main() {
   {
     tud_task(); // tinyusb device task
     status_led_blinking_task(false); // Blink the LED to show device status
-    
+    hid_task(); // Send HID reports to the host
+
     if (!message_sent){
       midi_task(msg);
       message_sent = true; // After message was send, ensure we do not send it again.
@@ -229,6 +262,18 @@ void tud_hid_report_complete_cb(uint8_t instance, uint8_t const *report, uint16_
   return; // Not used in this example
 }
 
+
+// Sends the current hid_in_report[] state every 10ms.
+// In MIDI mode the report is all zeros (no HID activity).
+// In HID mode the report reflects real button states.
+void hid_task(void) {
+    static uint32_t last_ms = 0;
+    uint32_t now = board_millis();
+    if (now - last_ms < 10) return;
+    last_ms = now;
+    if (!tud_hid_ready()) return;
+    tud_hid_report(0, hid_in_report, sizeof(hid_in_report));
+}
 
 //--------------------------------------------------------------------+
 // MIDI Task
