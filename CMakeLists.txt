@@ -38,7 +38,6 @@ project(cdjay C CXX ASM)
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
-
 add_executable(cdjay
     cdjay.c
     include/tinyusb/usb_descriptors.c
@@ -51,7 +50,7 @@ pico_set_program_version(cdjay "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_usb(cdjay 0)
-pico_enable_stdio_uart(cdjay 0)
+pico_enable_stdio_uart(cdjay 1)
 
 
 # Add the standard library to the build
@@ -62,6 +61,8 @@ target_link_libraries(cdjay
 target_include_directories(cdjay PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/tinyusb
     ${CMAKE_CURRENT_SOURCE_DIR}/include/button
+    ${CMAKE_CURRENT_SOURCE_DIR}/headers
+
 )
 
 # Add any user requested libraries
@@ -72,4 +73,3 @@ target_link_libraries(cdjay
         )
 
 pico_add_extra_outputs(cdjay)
-

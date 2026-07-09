@@ -19,6 +19,8 @@
  * endpoints, so there is no audio functionality - just parser alignment.
  */
 
+#include <stdio.h>
+
 #include "tusb.h"
 #include "device/usbd_pvt.h"
 
@@ -35,8 +37,17 @@ static uint16_t audio_stub_open(uint8_t rhport,
 {
     (void)rhport;
 
-    // Only claim Audio class (0x01) interfaces
-    if (itf_desc->bInterfaceClass != TUSB_CLASS_AUDIO)
+    printf("AUDIO_STUB open: itf=%u class=0x%02x sub=0x%02x proto=0x%02x max_len=%u\n",
+           itf_desc->bInterfaceNumber,
+           itf_desc->bInterfaceClass,
+           itf_desc->bInterfaceSubClass,
+           itf_desc->bInterfaceProtocol,
+           max_len);
+
+    // Only claim Audio Control / Audio Streaming interfaces.
+    // Leave MIDI Streaming (subclass 0x03) for TinyUSB's MIDI driver.
+    if (itf_desc->bInterfaceClass != TUSB_CLASS_AUDIO ||
+        itf_desc->bInterfaceSubClass == AUDIO_SUBCLASS_MIDI_STREAMING)
         return 0;
 
     uint8_t  const *p      = (uint8_t const *)itf_desc;
@@ -47,6 +58,12 @@ static uint16_t audio_stub_open(uint8_t rhport,
     {
         uint8_t len = p[0];
         if (len == 0) break;
+
+        printf("AUDIO_STUB desc: type=0x%02x len=%u itf=%u total=%u\n",
+               p[1],
+               len,
+               (p[1] == TUSB_DESC_INTERFACE) ? ((tusb_desc_interface_t const *)p)->bInterfaceNumber : 0xFF,
+               total);
 
         // Stop when we reach a DIFFERENT interface number - that one belongs
         // to the next driver (MIDI or HID). Same interface number = another
@@ -60,6 +77,28 @@ static uint16_t audio_stub_open(uint8_t rhport,
         total += len;
         p     += len;
     }
+
+    // If this Audio Control interface is just the anchor for a MIDI
+    // Streaming interface (no real endpoints of its own), leave it alone.
+    // TinyUSB's own midid_open() expects to be called with the AC-Control
+    // interface first and walks forward to consume the MIDI Streaming
+    // interface itself - if we swallow the AC interface here, midid_open()
+    // never gets a valid starting point and MIDI never opens.
+    if (total < max_len && p[0] != 0 && p[1] == TUSB_DESC_INTERFACE)
+    {
+        tusb_desc_interface_t const *next_itf = (tusb_desc_interface_t const *)p;
+        if (next_itf->bInterfaceClass == TUSB_CLASS_AUDIO &&
+            next_itf->bInterfaceSubClass == AUDIO_SUBCLASS_MIDI_STREAMING)
+        {
+            printf("AUDIO_STUB open: itf=%u is MIDI anchor, leaving for midid_open\n",
+                   itf_desc->bInterfaceNumber);
+            return 0;
+        }
+    }
+
+    printf("AUDIO_STUB open done: itf=%u consumed=%u\n",
+           itf_desc->bInterfaceNumber,
+           total);
 
     return total;
 }

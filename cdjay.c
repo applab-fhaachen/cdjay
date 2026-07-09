@@ -7,7 +7,9 @@
 #include "bsp/board.h"
 #include "tusb.h"
 #include "button.h"
-#include "messages.h"
+#include "midi_messages.h"
+#include "cdj_hid.h"
+#include "cdj_hid_map.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -34,38 +36,15 @@ const uint LED_PIN = PLAY_LED_PIN;
 
 // ----------------------------------------------------------------
 // HID report state (20 bytes, vendor-defined Usage Page 0xFFA0/0xFFA1)
-// Layout we define ourselves - the host (DJay etc.) interprets
-// these as described in the CDJ-850 HID protocol:
-//   Byte 0:  button bitfield  (bit 0 = PLAY, bit 1 = CUE, ...)
-//   Byte 1:  button bitfield  (next 8 buttons)
-//   Byte 2+: reserved / jog wheel / pitch (fill in once you have
-//            a detailed button-press capture to map the bits)
-//
-// NOTE: for software that actually understands CDJ-850 HID natively
-// (rekordbox in HID mode) the bit positions must match the real device.
-// Until you have a full mapping capture, these positions are placeholders.
+// Byte layout and button bit positions match the real CDJ-850 protocol,
+// see headers/cdj_hid.h and headers/cdj_hid_map.h.
 // ----------------------------------------------------------------
-static uint8_t hid_in_report[20] = { 0 };
-
-// Map each button GPIO to its bit position in hid_in_report[].
-// Extend this table as you add more buttons.
-typedef struct {
-    uint    gpio;
-    uint8_t byte_index;   // which byte in hid_in_report
-    uint8_t bit_mask;     // which bit in that byte
-} HidButtonMap_t;
- 
-static const HidButtonMap_t hid_button_map[] = {
-    { PLAY_BUTTON_PIN, 0, (1 << 0) },   // byte 0, bit 0
-    { CUE_BUTTON_PIN,  0, (1 << 1) },   // byte 0, bit 1
-    // add more here as you discover the mapping from capture
-};
-#define HID_BUTTON_MAP_COUNT (sizeof(hid_button_map) / sizeof(hid_button_map[0]))
-
+static uint8_t hid_in_report[CDJ_IN_REPORT_LEN];
 
 // Status variables
 bool playing = false; //just for testing if button intterupts work as expected
 static bool message_sent = true; //just for testing. Default is true to avoid sending messages.
+
 uint8_t msg[3];
 
 // This is an example for a state of the play Button
@@ -79,9 +58,11 @@ uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
 int led_init(void);
 int button_init(void);
 void led_pause_task(bool play_led);
+void process_button_events(void);
 
 int main() {
   board_init();
+  cdj_in_report_init(hid_in_report);
   int led_rc = led_init();
   int button_rc = button_init();
   
@@ -99,8 +80,8 @@ int main() {
   // init for button handling see: include/button/button.c
   button_system_init();
 
-  button_t *play_button = create_button(PLAY_BUTTON_PIN, button_cb);
-  button_t *cue_button = create_button(CUE_BUTTON_PIN, button_cb);
+  button_t *play_button = create_button_queued(PLAY_BUTTON_PIN, button_cb);
+  button_t *cue_button = create_button_queued(CUE_BUTTON_PIN, button_cb);
 
   // Signal: medium blink = calling tusb_init
   pico_set_led(true, false);
@@ -118,14 +99,11 @@ int main() {
   
   while (1)
   {
-    tud_task(); // tinyusb device task
-    status_led_blinking_task(false); // Blink the LED to show device status
-    hid_task(); // Send HID reports to the host
-
-    if (!message_sent){
-      midi_task(msg);
-      message_sent = true; // After message was send, ensure we do not send it again.
-    }
+    tud_task();                       // tinyusb device task
+    button_poll_events();             // handle debounced button callbacks in main context
+    status_led_blinking_task(false);  // Blink the LED to show device status
+    hid_task();                       // Send HID reports to the host
+    
     // If the play button is pressed, send MIDI messages  
     if(playing) {
       status_led_blinking_task(true); // If playing, use the play LED for blinking.
@@ -212,21 +190,55 @@ void tud_resume_cb(void)
 void button_cb(button_t *b) {
   if (!b) return;
 
-  const MidiMsg_t *message = find_message(b->pin, !b->state);
-  if (!message) return;
+  bool pressed = !b->state;
 
-  if (b->pin == PLAY_BUTTON_PIN && !b->state) {
-    playing = !playing;
+  const MidiMsg_t *message = find_message(b->pin, pressed);
+
+  printf("MIDI lookup: pin=%u pressed=%u %s\n",
+         b->pin,
+         pressed,
+         message ? "found" : "not found");
+
+  if (message) {
+    printf("  channel=0x%02x value=%u velocity=%u\n",
+           message->channel,
+           message->value,
+           message->velocity);
   }
-  else if(b->pin == CUE_BUTTON_PIN && !b->state) {
-    // If the cue button is pressed, pause the blinking and turn on the LED
-    led_pause_task(true);
+  
+  if (!message) {
+    printf("No MIDI message found for pin %u\n", b->pin);
+    return;
   }
 
   msg[0] = message->channel;
   msg[1] = message->value;
   msg[2] = message->velocity;
   message_sent = false;
+  midi_task(msg); // Send MIDI messages to the host
+
+    // ---- HID: aktualisiere den State-Report --------------------
+    for (size_t i = 0; i < CDJ_HID_BUTTON_MAP_COUNT; i++) {
+        if (cdj_hid_button_map[i].gpio == b->pin) {
+            uint8_t idx  = cdj_hid_button_map[i].byte_offset;
+            uint8_t mask = cdj_hid_button_map[i].mask;
+            if (pressed) {
+                hid_in_report[idx] |=  mask;
+            } else {
+                hid_in_report[idx] &= ~mask;
+            }
+            break;
+        }
+    }
+  
+  if (b->pin == PLAY_BUTTON_PIN && pressed) {
+    playing = !playing;
+  }
+  else if(b->pin == CUE_BUTTON_PIN && pressed) {
+    // If the cue button is pressed, pause the blinking and turn on the LED
+    led_pause_task(true);
+  }
+
 }
 //--------------------------------------------------------------------+
 // HID Task
@@ -249,9 +261,13 @@ void tud_hid_set_report_cb(
     uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize) {
   (void)instance;
 
-  if (report_type == HID_REPORT_TYPE_OUTPUT) {
-      //TODO define what to do with the received data. For now, we just print it to the console.
-      printf("Received HID report: ");
+   if (report_type == HID_REPORT_TYPE_OUTPUT && bufsize >= CDJ_OUT_REPORT_LEN) {
+        // buffer[0] = 0x00, buffer[1] = 0x21 (header, ignore)
+        // buffer[2] bit7 = Play LED, bit6 = Cue LED, etc.
+        // TODO: drive your LEDs here based on buffer contents
+        // Example: bool play_led_on = (buffer[2] & CDJ_LED_PLAY) != 0;
+        //          pico_set_led(play_led_on, true);
+        (void)buffer;
     }
 }
 
@@ -261,7 +277,6 @@ void tud_hid_set_report_cb(
 void tud_hid_report_complete_cb(uint8_t instance, uint8_t const *report, uint16_t len) {
   return; // Not used in this example
 }
-
 
 // Sends the current hid_in_report[] state every 10ms.
 // In MIDI mode the report is all zeros (no HID activity).
@@ -281,7 +296,8 @@ void hid_task(void) {
 
 void midi_task(uint8_t msg[3])
 {
-  tud_midi_n_stream_write(0, 0, msg, 3);
+  uint32_t written = tud_midi_n_stream_write(0, 0, msg, 3);
+  printf("MIDI write returned %lu bytes\n", (unsigned long)written);
 }
 
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity) {

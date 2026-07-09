@@ -6,6 +6,7 @@
             "cwd": "${userHome}/.pico-sdk/openocd/0.12.0+dev/scripts",
             "executable": "${workspaceFolder}/build/cdjay.elf",
             "request": "launch",
+            "showDevDebugOutput": "raw",
             "rttConfig": {
                 "enabled": true,
                 "address": "auto",
@@ -41,16 +42,23 @@
         },
         {
             "name": "Pico Debug (Cortex-Debug with external OpenOCD)",
-            "cwd": "${workspaceRoot}",
+            "cwd": "${userHome}/.pico-sdk/openocd/0.12.0+dev/scripts",
             "executable": "${workspaceFolder}/build/cdjay.elf",
             "request": "launch",
             "type": "cortex-debug",
-            "servertype": "external",
-            "gdbTarget": "localhost:3333",
-            "preLaunchTask": "Flash",
+            "servertype": "openocd",
+            "serverpath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
+            "showDevDebugOutput": "raw",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/${command:raspberry-pi-pico.getTarget}.cfg"
+            ],
             "gdbPath": "${command:raspberry-pi-pico.getGDBPath}",
             "debuggerArgs": ["-ex", "set debug-file-directory /debug"],
             "device": "${command:raspberry-pi-pico.getChipUppercase}",
+            "openOCDLaunchCommands": [
+                "adapter speed 5000"
+            ],
             "svdFile": "${userHome}/.pico-sdk/sdk/2.2.0/src/${command:raspberry-pi-pico.getChip}/hardware_regs/${command:raspberry-pi-pico.getChipUppercase}.svd",
             "runToEntryPoint": "main",
             // Fix for no_flash binaries, where monitor reset halt doesn't do what is expected
