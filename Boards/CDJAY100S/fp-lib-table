@@ -1,0 +1,5 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "52045-3645") (type "KiCad") (uri "${KIPRJMOD}/Libraries/Footprints/52045-3645") (options "") (descr ""))
+	(lib (name "PT6302") (type "KiCad") (uri "${KIPRJMOD}/Libraries/VFD/PT6302.pretty") (options "") (descr ""))
+)
