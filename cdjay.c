@@ -7,6 +7,7 @@
 #include "bsp/board.h"
 #include "tusb.h"
 #include "button.h"
+#include "encoder.h"
 #include "midi_messages.h"
 #include "cdj_hid.h"
 #include "cdj_hid_map.h"
@@ -59,6 +60,7 @@ int led_init(void);
 int button_init(void);
 void led_pause_task(bool play_led);
 void process_button_events(void);
+uint8_t search_encoder_velocity(uint pin);
 
 int main() {
   board_init();
@@ -82,6 +84,11 @@ int main() {
 
   button_t *play_button = create_button_queued(PLAY_BUTTON_PIN, button_cb);
   button_t *cue_button = create_button_queued(CUE_BUTTON_PIN, button_cb);
+  button_t *search_submit_button = create_button_queued(SEARCH_SUBMIT_BUTTON_PIN, button_cb);
+  // Rotary search encoder: each detent pulses either the FWD or BWD pin.
+  // Turning speed is derived from the time between pulses, see search_encoder_velocity().
+  button_t *search_fwd_button = create_button_queued(SEARCH_FWD_BUTTON_PIN, button_cb);
+  button_t *search_bwd_button = create_button_queued(SEARCH_BWD_BUTTON_PIN, button_cb);
 
   // Signal: medium blink = calling tusb_init
   pico_set_led(true, false);
@@ -150,8 +157,11 @@ int button_init(void) {
     gpio_init(CUE_BUTTON_PIN);
     gpio_set_dir(CUE_BUTTON_PIN, GPIO_IN);
     gpio_pull_up(CUE_BUTTON_PIN);
-  #else
-    return PICO_ERROR_NOT_SUPPORTED;
+  #endif
+  #if defined(SEARCH_SUBMIT_BUTTON_PIN)
+    gpio_init(SEARCH_SUBMIT_BUTTON_PIN);
+    gpio_set_dir(SEARCH_SUBMIT_BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(SEARCH_SUBMIT_BUTTON_PIN);
   #endif
     return PICO_OK;
 }
@@ -211,9 +221,16 @@ void button_cb(button_t *b) {
     return;
   }
 
+  uint8_t velocity = message->velocity;
+
+  // Search wheel: scale velocity by how fast the encoder is being turned.
+  if (pressed && (b->pin == SEARCH_FWD_BUTTON_PIN || b->pin == SEARCH_BWD_BUTTON_PIN)) {
+    velocity = search_encoder_velocity(b->pin);
+  }
+
   msg[0] = message->channel;
   msg[1] = message->value;
-  msg[2] = message->velocity;
+  msg[2] = velocity;
   message_sent = false;
   midi_task(msg); // Send MIDI messages to the host
 
@@ -237,6 +254,10 @@ void button_cb(button_t *b) {
   else if(b->pin == CUE_BUTTON_PIN && pressed) {
     // If the cue button is pressed, pause the blinking and turn on the LED
     led_pause_task(true);
+  }
+  else if(b->pin == SEARCH_SUBMIT_BUTTON_PIN && !pressed) {
+    // If the search submit button is released, resume blinking
+    printf("Search submit button released,");
   }
 
 }
@@ -298,6 +319,23 @@ void midi_task(uint8_t msg[3])
 {
   uint32_t written = tud_midi_n_stream_write(0, 0, msg, 3);
   printf("MIDI write returned %lu bytes\n", (unsigned long)written);
+}
+
+//--------------------------------------------------------------------+
+// Search encoder speed -> MIDI velocity
+//--------------------------------------------------------------------+
+// Shortest inter-pulse interval we bother distinguishing (fastest spin -> velocity 127)
+#define SEARCH_ENCODER_MIN_INTERVAL_US 3000
+// Longest inter-pulse interval we still report a signal for (slowest spin -> velocity 1)
+#define SEARCH_ENCODER_MAX_INTERVAL_US 150000
+
+// Returns a MIDI velocity (1-127) derived from the time since the last pulse
+// on this encoder pin. Faster turning (shorter interval) yields a higher velocity.
+// FWD and BWD are tracked independently by encoder_pulse_interval_us() since
+// they are separate physical contacts.
+uint8_t search_encoder_velocity(uint pin) {
+  uint32_t interval = encoder_pulse_interval_us(pin, SEARCH_ENCODER_MIN_INTERVAL_US, SEARCH_ENCODER_MAX_INTERVAL_US);
+  return (uint8_t)encoder_interval_to_speed(interval, SEARCH_ENCODER_MIN_INTERVAL_US, SEARCH_ENCODER_MAX_INTERVAL_US, 1, 127);
 }
 
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity) {

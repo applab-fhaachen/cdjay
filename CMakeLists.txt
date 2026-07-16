@@ -43,6 +43,7 @@ add_executable(cdjay
     include/tinyusb/usb_descriptors.c
     include/tinyusb/usb_audio_stub.c
     include/button/button.c
+    include/button/encoder.c
 )
 
 pico_set_program_name(cdjay "cdjay")
