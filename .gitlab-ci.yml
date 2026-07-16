@@ -1,0 +1,34 @@
+stages:
+  - build
+
+variables:
+  PICO_SDK_VERSION: "2.2.0"
+  PICO_SDK_PATH: "$CI_PROJECT_DIR/pico-sdk"
+  GIT_SUBMODULE_STRATEGY: none
+
+build:
+  stage: build
+  image: ubuntu:24.04
+  cache:
+    key: "pico-sdk-$PICO_SDK_VERSION"
+    paths:
+      - pico-sdk/
+  before_script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get update
+    - apt-get install -y --no-install-recommends
+        cmake ninja-build build-essential git ca-certificates
+        gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+        libusb-1.0-0-dev pkg-config python3
+    - |
+      if [ ! -d "$PICO_SDK_PATH/.git" ]; then
+        git clone --branch "$PICO_SDK_VERSION" --depth 1 https://github.com/raspberrypi/pico-sdk.git "$PICO_SDK_PATH"
+        git -C "$PICO_SDK_PATH" submodule update --init --recursive --depth 1
+      fi
+  script:
+    - cmake -S . -B build -G Ninja
+    - cmake --build build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH'
