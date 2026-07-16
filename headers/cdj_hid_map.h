@@ -22,7 +22,7 @@ static const cdj_hid_button_map_t cdj_hid_button_map[] = {
     { CUE_BUTTON_PIN,          2, CDJ_BTN_CUE        },
     { SEARCH_FWD_BUTTON_PIN,   2, CDJ_BTN_SEARCH_FWD },
     { SEARCH_BWD_BUTTON_PIN,   2, CDJ_BTN_SEARCH_BWD },
-    { TRACK_SEARCH_FWD_BUTTON_PIN, 2, CDJ_BTN_TRACK_FWD },
+    { SEARCH_SUBMIT_BUTTON_PIN, 2, CDJ_BTN_TRACK_FWD },
     { IN_CUE_BUTTON_PIN,       3, CDJ_BTN_IN_CUE     },
     { OUT_CUE_BUTTON_PIN,      3, CDJ_BTN_OUT        },
     { RELOOP_EXIT_BUTTON_PIN,  3, CDJ_BTN_RELOOP     },
