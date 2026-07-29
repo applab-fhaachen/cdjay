@@ -217,7 +217,7 @@ static button_t * create_button_internal(int pin, void (*onchange)(button_t *), 
   button_t *b = (button_t *)(malloc(sizeof(button_t)));
   if (!b) return NULL;
 
-  listen(pin, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, handle_button_interrupt, b);
+  listen(pin, GPIO_IRQ_EDGE_RISE, handle_button_interrupt, b);
   b->pin = pin;
   b->onchange = onchange;
   b->use_queue = use_queue;

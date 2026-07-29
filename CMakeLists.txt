@@ -43,6 +43,7 @@ add_executable(cdjay
     include/tinyusb/usb_descriptors.c
     include/tinyusb/usb_audio_stub.c
     include/button/button.c
+    include/button/cdj_button.c
     include/button/encoder.c
 )
 
@@ -62,7 +63,7 @@ target_link_libraries(cdjay
 target_include_directories(cdjay PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/tinyusb
     ${CMAKE_CURRENT_SOURCE_DIR}/include/button
-    ${CMAKE_CURRENT_SOURCE_DIR}/headers
+    ${CMAKE_CURRENT_SOURCE_DIR}/headers/
 
 )
 

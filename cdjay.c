@@ -6,25 +6,28 @@
 
 #include "bsp/board.h"
 #include "tusb.h"
+#include "cdj_button.h"
 #include "button.h"
 #include "encoder.h"
 #include "midi_messages.h"
-#include "cdj_hid.h"
-#include "cdj_hid_map.h"
+// #include "cdj_hid.h"
+// #include "cdj_hid_map.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
 #ifdef CYW43_WL_GPIO_LED_PIN
 #include "pico/cyw43_arch.h"
-#endif
+#endif 
 
-#ifndef PLAY_LED_PIN
-#define PLAY_LED_PIN 15
-#endif
+#define S1 12
+#define S2 13
+#define S3 14
+#define S4 15
+#define S5 16
 
-#ifndef PLAY_BUTTON_PIN
-#define PLAY_BUTTON_PIN 18
-#endif
+#define KD0 17
+#define KD1 18
+#define KD2 19
 
 enum  {
   BLINK_NOT_MOUNTED = 250,
@@ -33,7 +36,7 @@ enum  {
 };
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
-const uint LED_PIN = PLAY_LED_PIN;
+// const uint LED_PIN = PLAY_LED_PIN;
 
 // ----------------------------------------------------------------
 // HID report state (20 bytes, vendor-defined Usage Page 0xFFA0/0xFFA1)
@@ -52,7 +55,19 @@ uint8_t msg[3];
 void led_blinking_task(void);
 void midi_task(uint8_t msg[3]);
 void hid_task(void);
-void button_cb(button_t *b);
+void hold_button_cb(cdj_button_t *b);
+void trkb_button_cb(cdj_button_t *b);
+void play_button_cb(cdj_button_t *b);
+void time_button_cb(cdj_button_t *b);
+void trkf_button_cb(cdj_button_t *b);
+void cue_button_cb(cdj_button_t *b);
+void eject_button_cb(cdj_button_t *b);
+void jet_button_cb(cdj_button_t *b);
+void scnb_button_cb(cdj_button_t *b);
+void mt_button_cb(cdj_button_t *b);
+void zip_button_cb(cdj_button_t *b);
+void scnf_button_cb(cdj_button_t *b);
+void wah_button_cb(cdj_button_t *b);
 void pico_set_led(bool led_on, bool play_led);
 void status_led_blinking_task(bool play_led);
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
@@ -65,11 +80,10 @@ uint8_t search_encoder_velocity(uint pin);
 int main() {
   board_init();
   cdj_in_report_init(hid_in_report);
-  int led_rc = led_init();
   int button_rc = button_init();
   
   //Check if everything is set up correctly, if not, stop the program here.
-  hard_assert(led_rc == PICO_OK);
+  // hard_assert(led_rc == PICO_OK);
   hard_assert(button_rc == PICO_OK);
   
   // Signal: slow blink = starting
@@ -79,16 +93,33 @@ int main() {
   sleep_ms(5000);
   
   stdio_init_all();
+
   // init for button handling see: include/button/button.c
   button_system_init();
 
-  button_t *play_button = create_button_queued(PLAY_BUTTON_PIN, button_cb);
-  button_t *cue_button = create_button_queued(CUE_BUTTON_PIN, button_cb);
-  button_t *search_submit_button = create_button_queued(SEARCH_SUBMIT_BUTTON_PIN, button_cb);
+  cdj_button_t *hold = create_cdj_button(S1, KD0, hold_button_cb);
+  cdj_button_t *trkb = create_cdj_button(S1, KD1, trkb_button_cb);
+  cdj_button_t *play = create_cdj_button(S1, KD2, play_button_cb);
+
+  cdj_button_t *time = create_cdj_button(S2, KD0, time_button_cb);
+  cdj_button_t *trkf = create_cdj_button(S2, KD1, trkf_button_cb);
+  cdj_button_t *cue = create_cdj_button(S2, KD2, cue_button_cb);
+
+  cdj_button_t *eject = create_cdj_button(S3, KD0, eject_button_cb);
+  cdj_button_t *jet = create_cdj_button(S3, KD1, jet_button_cb);
+  cdj_button_t *scnb = create_cdj_button(S3, KD2, scnb_button_cb);
+
+  cdj_button_t *mt = create_cdj_button(S4, KD0, mt_button_cb);
+  cdj_button_t *zip = create_cdj_button(S4, KD1, zip_button_cb);
+  cdj_button_t *scnf = create_cdj_button(S4, KD2, scnf_button_cb);
+
+  cdj_button_t *wah = create_cdj_button(S5, KD1, wah_button_cb);
+
   // Rotary search encoder: each detent pulses either the FWD or BWD pin.
   // Turning speed is derived from the time between pulses, see search_encoder_velocity().
-  button_t *search_fwd_button = create_button_queued(SEARCH_FWD_BUTTON_PIN, button_cb);
-  button_t *search_bwd_button = create_button_queued(SEARCH_BWD_BUTTON_PIN, button_cb);
+  // Rotary encoders are a bit more complex than simple push buttons, so we use the queued version of the button handler.
+  // button_t *search_fwd_button = create_button_queued(SEARCH_FWD_BUTTON_PIN, button_cb);
+  // button_t *search_bwd_button = create_button(SEARCH_BWD_BUTTON_PIN, button_cb);
 
   // Signal: medium blink = calling tusb_init
   pico_set_led(true, false);
@@ -107,7 +138,7 @@ int main() {
   while (1)
   {
     tud_task();                       // tinyusb device task
-    button_poll_events();             // handle debounced button callbacks in main context
+    cdj_button_poll_events();         // handle debounced button callbacks in main context
     status_led_blinking_task(false);  // Blink the LED to show device status
     hid_task();                       // Send HID reports to the host
     
@@ -120,48 +151,12 @@ int main() {
 //--------------------------------------------------------------------+
 // initialization
 //--------------------------------------------------------------------+
-// LED initialization
-int led_init(void) {
-  #if defined(PICO_DEFAULT_LED_PIN)
-    // A device like Pico that uses a GPIO for the LED will define PICO_DEFAULT_LED_PIN
-    // so we can use normal GPIO functionality to turn the led on and off
-    // Just in case we war running on a pico w without CYW43_WL_GPIO_LED_PIN defined, we check for that first
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-    return PICO_OK;
-  #elif defined(PLAY_LED_PIN) && defined(CYW43_WL_GPIO_LED_PIN)
-    // For Pico W devices we need to initialise the driver etc
-    cyw43_arch_init(); //Initialise the board LED for connection feedback
-    gpio_init(PLAY_LED_PIN);
-    gpio_set_dir(PLAY_LED_PIN, GPIO_OUT);
-    return PICO_OK;
-  #elif defined(PLAY_LED_PIN)
-    gpio_init(PLAY_LED_PIN);
-    gpio_set_dir(PLAY_LED_PIN, GPIO_OUT);
-    return PICO_OK;
-  #else
-    return PICO_ERROR_NOT_SUPPORTED;
-  #endif
-}
 
 // Button initialization
 int button_init(void) {
-  #if defined(PLAY_BUTTON_PIN)
-    gpio_init(PLAY_BUTTON_PIN);
-    gpio_set_dir(PLAY_BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(PLAY_BUTTON_PIN);
+  #if defined(S1) && defined(S2) && defined(S3) && defined(S4) && defined(S5) && defined(KD0) && defined(KD1) && defined(KD2)
   #else
     return PICO_ERROR_NOT_SUPPORTED;
-  #endif
-  #if defined(CUE_BUTTON_PIN)
-    gpio_init(CUE_BUTTON_PIN);
-    gpio_set_dir(CUE_BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(CUE_BUTTON_PIN);
-  #endif
-  #if defined(SEARCH_SUBMIT_BUTTON_PIN)
-    gpio_init(SEARCH_SUBMIT_BUTTON_PIN);
-    gpio_set_dir(SEARCH_SUBMIT_BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(SEARCH_SUBMIT_BUTTON_PIN);
   #endif
     return PICO_OK;
 }
@@ -169,7 +164,6 @@ int button_init(void) {
 //--------------------------------------------------------------------+
 // Device callbacks
 //--------------------------------------------------------------------+
-
 // Invoked when device is mounted
 void tud_mount_cb(void)
 {
@@ -197,69 +191,39 @@ void tud_resume_cb(void)
   blink_interval_ms = BLINK_MOUNTED;
 }
 
-void button_cb(button_t *b) {
+//--------------------------------------------------------------------+
+// Button callback
+//--------------------------------------------------------------------+
+void cdj_button_cb(cdj_button_t *b) {
   if (!b) return;
 
   bool pressed = !b->state;
 
-  const MidiMsg_t *message = find_message(b->pin, pressed);
-
-  printf("MIDI lookup: pin=%u pressed=%u %s\n",
-         b->pin,
-         pressed,
-         message ? "found" : "not found");
-
-  if (message) {
-    printf("  channel=0x%02x value=%u velocity=%u\n",
-           message->channel,
-           message->value,
-           message->velocity);
-  }
-  
-  if (!message) {
-    printf("No MIDI message found for pin %u\n", b->pin);
-    return;
-  }
-
-  uint8_t velocity = message->velocity;
-
+  //JogWheel: scale velocity by how fast the encoder is being turned.
   // Search wheel: scale velocity by how fast the encoder is being turned.
-  if (pressed && (b->pin == SEARCH_FWD_BUTTON_PIN || b->pin == SEARCH_BWD_BUTTON_PIN)) {
-    velocity = search_encoder_velocity(b->pin);
-  }
-
-  msg[0] = message->channel;
-  msg[1] = message->value;
-  msg[2] = velocity;
+  // if (pressed && (b->pin == SEARCH_FWD_BUTTON_PIN || b->pin == SEARCH_BWD_BUTTON_PIN)) {
+  //   velocity = search_encoder_velocity(b->pin);
+  // }
+  //TODO: Send MIDI messages to the host when a button is pressed or released
+  // msg[0] = message->channel;
+  // msg[1] = message->value;
+  // msg[2] = velocity;
   message_sent = false;
-  midi_task(msg); // Send MIDI messages to the host
-
-    // ---- HID: aktualisiere den State-Report --------------------
-    for (size_t i = 0; i < CDJ_HID_BUTTON_MAP_COUNT; i++) {
-        if (cdj_hid_button_map[i].gpio == b->pin) {
-            uint8_t idx  = cdj_hid_button_map[i].byte_offset;
-            uint8_t mask = cdj_hid_button_map[i].mask;
-            if (pressed) {
-                hid_in_report[idx] |=  mask;
-            } else {
-                hid_in_report[idx] &= ~mask;
-            }
-            break;
-        }
-    }
-  
-  if (b->pin == PLAY_BUTTON_PIN && pressed) {
-    playing = !playing;
-  }
-  else if(b->pin == CUE_BUTTON_PIN && pressed) {
-    // If the cue button is pressed, pause the blinking and turn on the LED
-    led_pause_task(true);
-  }
-  else if(b->pin == SEARCH_SUBMIT_BUTTON_PIN && !pressed) {
-    // If the search submit button is released, resume blinking
-    printf("Search submit button released,");
-  }
-
+  midi_task(msg);     // Send MIDI messages to the host
+    //TODO: Update the HID report state when a button is pressed or released
+    // // ------------ HID: Update the State-Report --------------------
+    // for (size_t i = 0; i < CDJ_HID_BUTTON_MAP_COUNT; i++) {
+    //     if (cdj_hid_button_map[i].gpio == b->pin) {
+    //         uint8_t idx  = cdj_hid_button_map[i].byte_offset;
+    //         uint8_t mask = cdj_hid_button_map[i].mask;
+    //         if (pressed) {
+    //             hid_in_report[idx] |=  mask;
+    //         } else {s
+    //             hid_in_report[idx] &= ~mask;
+    //         }
+    //         break;
+    //     }
+    // }
 }
 //--------------------------------------------------------------------+
 // HID Task
@@ -336,14 +300,6 @@ void midi_task(uint8_t msg[3])
 uint8_t search_encoder_velocity(uint pin) {
   uint32_t interval = encoder_pulse_interval_us(pin, SEARCH_ENCODER_MIN_INTERVAL_US, SEARCH_ENCODER_MAX_INTERVAL_US);
   return (uint8_t)encoder_interval_to_speed(interval, SEARCH_ENCODER_MIN_INTERVAL_US, SEARCH_ENCODER_MAX_INTERVAL_US, 1, 127);
-}
-
-uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity) {
-  static uint8_t msg[3];
-  msg[0] = channel;          // Note On - Channel n
-  msg[1] = note;             // Note Number
-  msg[2] = velocity;         // Velocity
-  return msg;
 }
 
 //--------------------------------------------------------------------+
