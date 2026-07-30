@@ -17,15 +17,15 @@
 #include "pico/cyw43_arch.h"
 #endif 
 
-#define S1 12
-#define S2 13
-#define S3 14
-#define S4 15
-#define S5 16
+#define S1 10
+#define S2 11
+#define S3 12
+#define S4 13
+#define S5 14
 
-#define KD0 17
-#define KD1 18
-#define KD2 19
+#define KD0 7
+#define KD1 8
+#define KD2 9
 
 // dummy for hid report initialization
 #define CDJ_OUT_REPORT_LEN 64
