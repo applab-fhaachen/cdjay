@@ -45,6 +45,7 @@ add_executable(cdjay
     include/button/button.c
     include/button/cdj_button.c
     include/button/encoder.c
+    include/pt6324/pt6324.c
 )
 
 pico_set_program_name(cdjay "cdjay")
@@ -57,15 +58,17 @@ pico_enable_stdio_uart(cdjay 1)
 
 # Add the standard library to the build
 target_link_libraries(cdjay
-        pico_stdlib)
+        pico_stdlib
+        hardware_spi)
 
 # Add the standard include files to the build
 target_include_directories(cdjay PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/tinyusb
     ${CMAKE_CURRENT_SOURCE_DIR}/include/button
     ${CMAKE_CURRENT_SOURCE_DIR}/headers
-
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/pt6324
 )
+    
 
 # Add any user requested libraries
 target_link_libraries(cdjay 
