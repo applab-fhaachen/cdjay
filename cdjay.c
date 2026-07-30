@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "hardware/gpio.h"
 #include "pico/binary_info.h"
+
 
 #include "bsp/board.h"
 #include "tusb.h"
@@ -10,6 +12,7 @@
 #include "button.h"
 #include "encoder.h"
 #include "midi_messages.h"
+#include "pt6324.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -30,6 +33,42 @@
 // dummy for hid report initialization
 #define CDJ_OUT_REPORT_LEN 64
 #define CDJ_IN_REPORT_LEN 20
+#ifndef SPI_PIN_0
+#define SPI_PIN_0 spi0
+#endif
+
+#ifndef CS_PIN
+#define CS_PIN 4 
+#endif
+
+#ifndef RST_PIN
+#define RSTB_PIN 3
+#endif
+
+#ifndef CLKB
+#define CLKB_PIN 2
+#endif
+
+#ifndef DIN_PIN
+#define DIN_PIN 5
+#endif 
+
+#ifndef CLKB_PIN
+#define CLKB_PIN 2
+#endif
+
+#ifndef DOUT_PIN_6324
+#define DOUT_PIN_6324 0
+#endif
+#ifndef DIN_PIN_6324
+#define DIN_PIN_6324  3
+#endif
+#ifndef CLK_PIN_6324
+#define CLK_PIN_6324  2
+#endif
+#ifndef STB_PIN_6324
+#define STB_PIN_6324  1
+#endif
 
 enum  {
   BLINK_NOT_MOUNTED = 250,
@@ -80,6 +119,7 @@ int button_init(void);
 void led_pause_task(bool play_led);
 void process_button_events(void);
 uint8_t search_encoder_velocity(uint pin);
+int pt_init(void);
 
 int main() {
   board_init();
@@ -138,6 +178,7 @@ int main() {
   sleep_ms(100);
   pico_set_led(false, false);
   sleep_ms(100);
+
   
   while (1)
   {
@@ -150,6 +191,7 @@ int main() {
     if(playing) {
       status_led_blinking_task(true); // If playing, use the play LED for blinking.
     }
+
   }
 }
 
@@ -166,9 +208,25 @@ int button_init(void) {
   #endif
     return PICO_OK;
 }
+
+int pt_init(void) {
+  #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
+    // All required pins are defined, proceed with initialization
+    pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
+    if (!pt6324_dev) {
+     printf("Failed to allocate memory for PT6324 device\n");
+     return -1;
+    }
+
+    // Initialize the PT6324 device
+    pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
+    return PICO_OK;
+  #else 
+    return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
+  #endif
+}
 #pragma endregion
 
-#pragma region Device callbacks
 //--------------------------------------------------------------------+
 // Device callbacks
 //--------------------------------------------------------------------+
