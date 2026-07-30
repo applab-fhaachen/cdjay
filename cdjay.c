@@ -10,8 +10,8 @@
 #include "button.h"
 #include "encoder.h"
 #include "midi_messages.h"
-// #include "cdj_hid.h"
-// #include "cdj_hid_map.h"
+#include "cdj_hid.h"
+#include "cdj_hid_map.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined

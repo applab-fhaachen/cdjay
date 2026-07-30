@@ -9,10 +9,10 @@
  */
 
 #include "cdj_hid.h"
-#include "midi_messages.h"   // for PLAY_BUTTON_PIN, CUE_BUTTON_PIN etc.
+#include "cdj_button.h"
 
 typedef struct {
-    uint    gpio;
+    cdj_button_t *button; // pointer to the button structure
     uint8_t byte_offset;  // offset in the 20-byte IN report
     uint8_t mask;         // bitmask within that byte
 } cdj_hid_button_map_t;

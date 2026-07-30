@@ -63,7 +63,7 @@ target_link_libraries(cdjay
 target_include_directories(cdjay PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/tinyusb
     ${CMAKE_CURRENT_SOURCE_DIR}/include/button
-    ${CMAKE_CURRENT_SOURCE_DIR}/headers/
+    ${CMAKE_CURRENT_SOURCE_DIR}/headers
 
 )
 
