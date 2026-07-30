@@ -36,11 +36,17 @@ static const MidiNode button_messages[3][5] = {
   } 
 };
 
+/**
+ * @brief Finds the MIDI message corresponding to a given button's S line and K line.
+ * @param s_line The S line of the button (0-4)
+ * @param k_line The K line of the button (0-2)
+ * @return A pointer to the corresponding MidiNode, or NULL if out of bounds.
+ */
 const MidiNode *find_message(uint s_line, uint k_line) {
-  if (s_line >= 3 || k_line >= 5) {
+  if (k_line >= 3 || s_line >= 5) {
     return NULL; // Out of bounds
   }
-  const MidiNode *msg = &button_messages[s_line][k_line];
+  const MidiNode *msg = &button_messages[k_line][s_line];
   return msg;
 }
 
