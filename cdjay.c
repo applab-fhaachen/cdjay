@@ -10,8 +10,6 @@
 #include "button.h"
 #include "encoder.h"
 #include "midi_messages.h"
-#include "cdj_hid.h"
-#include "cdj_hid_map.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -28,6 +26,10 @@
 #define KD0 17
 #define KD1 18
 #define KD2 19
+
+// dummy for hid report initialization
+#define CDJ_OUT_REPORT_LEN 64
+#define CDJ_IN_REPORT_LEN 20
 
 enum  {
   BLINK_NOT_MOUNTED = 250,
@@ -55,21 +57,23 @@ uint8_t msg[3];
 void led_blinking_task(void);
 void midi_task(uint8_t msg[3]);
 void hid_task(void);
-void hold_button_cb(cdj_button_t *b);
-void trkb_button_cb(cdj_button_t *b);
+
+// void hold_button_cb(cdj_button_t *b);
+// void trkb_button_cb(cdj_button_t *b);
 void play_button_cb(cdj_button_t *b);
-void time_button_cb(cdj_button_t *b);
-void trkf_button_cb(cdj_button_t *b);
+// void time_button_cb(cdj_button_t *b);
+// void trkf_button_cb(cdj_button_t *b);
 void cue_button_cb(cdj_button_t *b);
-void eject_button_cb(cdj_button_t *b);
-void jet_button_cb(cdj_button_t *b);
-void scnb_button_cb(cdj_button_t *b);
-void mt_button_cb(cdj_button_t *b);
-void zip_button_cb(cdj_button_t *b);
-void scnf_button_cb(cdj_button_t *b);
-void wah_button_cb(cdj_button_t *b);
+// void eject_button_cb(cdj_button_t *b);
+// void jet_button_cb(cdj_button_t *b);
+// void scnb_button_cb(cdj_button_t *b);
+// void mt_button_cb(cdj_button_t *b);
+// void zip_button_cb(cdj_button_t *b);
+// void scnf_button_cb(cdj_button_t *b);
+// void wah_button_cb(cdj_button_t *b);
 void pico_set_led(bool led_on, bool play_led);
 void status_led_blinking_task(bool play_led);
+
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
 int led_init(void);
 int button_init(void);
@@ -79,7 +83,7 @@ uint8_t search_encoder_velocity(uint pin);
 
 int main() {
   board_init();
-  cdj_in_report_init(hid_in_report);
+  // cdj_in_report_init(hid_in_report);
   int button_rc = button_init();
   
   //Check if everything is set up correctly, if not, stop the program here.
@@ -97,23 +101,23 @@ int main() {
   // init for button handling see: include/button/button.c
   button_system_init();
 
-  cdj_button_t *hold = create_cdj_button(S1, KD0, hold_button_cb);
-  cdj_button_t *trkb = create_cdj_button(S1, KD1, trkb_button_cb);
+  // cdj_button_t *hold = create_cdj_button(S1, KD0, hold_button_cb);
+  // cdj_button_t *trkb = create_cdj_button(S1, KD1, trkb_button_cb);
   cdj_button_t *play = create_cdj_button(S1, KD2, play_button_cb);
 
-  cdj_button_t *time = create_cdj_button(S2, KD0, time_button_cb);
-  cdj_button_t *trkf = create_cdj_button(S2, KD1, trkf_button_cb);
+  // cdj_button_t *time = create_cdj_button(S2, KD0, time_button_cb);
+  // cdj_button_t *trkf = create_cdj_button(S2, KD1, trkf_button_cb);
   cdj_button_t *cue = create_cdj_button(S2, KD2, cue_button_cb);
 
-  cdj_button_t *eject = create_cdj_button(S3, KD0, eject_button_cb);
-  cdj_button_t *jet = create_cdj_button(S3, KD1, jet_button_cb);
-  cdj_button_t *scnb = create_cdj_button(S3, KD2, scnb_button_cb);
+  // cdj_button_t *eject = create_cdj_button(S3, KD0, eject_button_cb);
+  // cdj_button_t *jet = create_cdj_button(S3, KD1, jet_button_cb);
+  // cdj_button_t *scnb = create_cdj_button(S3, KD2, scnb_button_cb);
 
-  cdj_button_t *mt = create_cdj_button(S4, KD0, mt_button_cb);
-  cdj_button_t *zip = create_cdj_button(S4, KD1, zip_button_cb);
-  cdj_button_t *scnf = create_cdj_button(S4, KD2, scnf_button_cb);
+  // cdj_button_t *mt = create_cdj_button(S4, KD0, mt_button_cb);
+  // cdj_button_t *zip = create_cdj_button(S4, KD1, zip_button_cb);
+  // cdj_button_t *scnf = create_cdj_button(S4, KD2, scnf_button_cb);
 
-  cdj_button_t *wah = create_cdj_button(S5, KD1, wah_button_cb);
+  // cdj_button_t *wah = create_cdj_button(S5, KD1, wah_button_cb);
 
   // Rotary search encoder: each detent pulses either the FWD or BWD pin.
   // Turning speed is derived from the time between pulses, see search_encoder_velocity().
@@ -148,6 +152,8 @@ int main() {
     }
   }
 }
+
+#pragma region TinyUSB callbacks
 //--------------------------------------------------------------------+
 // initialization
 //--------------------------------------------------------------------+
@@ -160,7 +166,9 @@ int button_init(void) {
   #endif
     return PICO_OK;
 }
+#pragma endregion
 
+#pragma region Device callbacks
 //--------------------------------------------------------------------+
 // Device callbacks
 //--------------------------------------------------------------------+
@@ -190,10 +198,39 @@ void tud_resume_cb(void)
 {
   blink_interval_ms = BLINK_MOUNTED;
 }
+#pragma endregion
 
+#pragma region Button callbacks
 //--------------------------------------------------------------------+
 // Button callback
 //--------------------------------------------------------------------+
+
+void play_button_cb(cdj_button_t *b){
+  if (!b) return;
+
+  playing = !b->state;                      // Toggle the playing state based on the button state
+  message_sent = false;                     // Reset message sent flag to allow sending MIDI messages
+  
+  const MidiNode *node = find_message(2,1); // Generate MIDI message for Play button
+  msg[0] = node->channel;                   // Set MIDI channel
+  msg[1] = node->value;                     // Set MIDI value
+  msg[2] = playing ? 127 : 0;               // Set velocity based
+  
+  midi_task(msg);                           // Send MIDI messages to the host
+}
+
+void cue_button_cb(cdj_button_t *b){
+  if (!b) return;
+
+  const MidiNode *node = find_message(2,2); // Generate MIDI message for Cue button
+  msg[0] = node->channel;                   // Set MIDI channel
+  msg[1] = node->value;                     // Set MIDI value
+  msg[2] = b->state ? 127 : 0;              // Set velocity based on button state
+  
+  midi_task(msg);                           // Send MIDI messages to the host
+}
+
+
 void cdj_button_cb(cdj_button_t *b) {
   if (!b) return;
 
@@ -208,6 +245,8 @@ void cdj_button_cb(cdj_button_t *b) {
   // msg[0] = message->channel;
   // msg[1] = message->value;
   // msg[2] = velocity;
+  
+  
   message_sent = false;
   midi_task(msg);     // Send MIDI messages to the host
     //TODO: Update the HID report state when a button is pressed or released
@@ -225,6 +264,10 @@ void cdj_button_cb(cdj_button_t *b) {
     //     }
     // }
 }
+#pragma endregion
+
+#pragma region HID callbacks
+
 //--------------------------------------------------------------------+
 // HID Task
 //--------------------------------------------------------------------+
@@ -274,7 +317,9 @@ void hid_task(void) {
     if (!tud_hid_ready()) return;
     tud_hid_report(0, hid_in_report, sizeof(hid_in_report));
 }
+#pragma endregion
 
+#pragma region MIDI callbacks
 //--------------------------------------------------------------------+
 // MIDI Task
 //--------------------------------------------------------------------+
@@ -284,7 +329,9 @@ void midi_task(uint8_t msg[3])
   uint32_t written = tud_midi_n_stream_write(0, 0, msg, 3);
   printf("MIDI write returned %lu bytes\n", (unsigned long)written);
 }
+#pragma endregion
 
+#pragma region rotary encoder callbacks
 //--------------------------------------------------------------------+
 // Search encoder speed -> MIDI velocity
 //--------------------------------------------------------------------+
@@ -301,7 +348,9 @@ uint8_t search_encoder_velocity(uint pin) {
   uint32_t interval = encoder_pulse_interval_us(pin, SEARCH_ENCODER_MIN_INTERVAL_US, SEARCH_ENCODER_MAX_INTERVAL_US);
   return (uint8_t)encoder_interval_to_speed(interval, SEARCH_ENCODER_MIN_INTERVAL_US, SEARCH_ENCODER_MAX_INTERVAL_US, 1, 127);
 }
+#pragma endregion
 
+#pragma region LED callbacks
 //--------------------------------------------------------------------+
 // BLINKING TASK
 //--------------------------------------------------------------------+
@@ -337,3 +386,4 @@ void status_led_blinking_task(bool play_led)
 void led_pause_task(bool play_led) {
   pico_set_led(true, play_led);
 }
+#pragma endregion
