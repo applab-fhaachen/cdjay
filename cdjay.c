@@ -5,7 +5,6 @@
 #include "hardware/gpio.h"
 #include "pico/binary_info.h"
 
-
 #include "bsp/board.h"
 #include "tusb.h"
 #include "cdj_button.h"
@@ -18,7 +17,7 @@
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
 #ifdef CYW43_WL_GPIO_LED_PIN
 #include "pico/cyw43_arch.h"
-#endif 
+#endif
 
 #define S1 10
 #define S2 11
@@ -46,16 +45,12 @@
 #endif
 
 #ifndef CLKB
-#define CLKB_PIN 2
+#define CLKB 2
 #endif
 
 #ifndef DIN_PIN
 #define DIN_PIN 5
 #endif 
-
-#ifndef CLKB_PIN
-#define CLKB_PIN 2
-#endif
 
 #ifndef DOUT_PIN_6324
 #define DOUT_PIN_6324 0
@@ -110,6 +105,7 @@ void cue_button_cb(cdj_button_t *b);
 // void zip_button_cb(cdj_button_t *b);
 // void scnf_button_cb(cdj_button_t *b);
 // void wah_button_cb(cdj_button_t *b);
+
 void pico_set_led(bool led_on, bool play_led);
 void status_led_blinking_task(bool play_led);
 
@@ -122,19 +118,20 @@ uint8_t search_encoder_velocity(uint pin);
 int pt_init(void);
 
 int main() {
+  
   board_init();
   // cdj_in_report_init(hid_in_report);
   int button_rc = button_init();
-  
+  int led_rc = led_init();
+
   //Check if everything is set up correctly, if not, stop the program here.
-  // hard_assert(led_rc == PICO_OK);
+  hard_assert(led_rc == PICO_OK);
   hard_assert(button_rc == PICO_OK);
   
   // Signal: slow blink = starting
   pico_set_led(true, false);
   sleep_ms(5000);
   pico_set_led(false, false);
-  sleep_ms(5000);
   
   stdio_init_all();
 
@@ -166,10 +163,9 @@ int main() {
   // button_t *search_bwd_button = create_button(SEARCH_BWD_BUTTON_PIN, button_cb);
 
   // Signal: medium blink = calling tusb_init
+  blink_interval_ms = BLINK_MOUNTED;
   pico_set_led(true, false);
-  sleep_ms(200);
-  pico_set_led(false, false);
-  sleep_ms(200);
+  pico_set_led(false, true);
   
   tusb_init(); // tinyusb device initialization
   
@@ -178,24 +174,35 @@ int main() {
   sleep_ms(100);
   pico_set_led(false, false);
   sleep_ms(100);
-
-  
+  printf("CDJ-Pico initialized. Starting main loop...\n");
+  uint32_t last_ms = time_us_32();
   while (1)
   {
+    uint32_t now = time_us_32();
+    uint32_t delta = now - last_ms;
+
+    if(delta >= 1000000U) { // 1s (time_us_32 returns microseconds)
+      last_ms = now;
+      int status_s1 = gpio_get(S1);
+      int status_s2 = gpio_get(S2);
+      int status_s3 = gpio_get(S3);
+      int status_s4 = gpio_get(S4);
+      int status_s5 = gpio_get(S5);
+      printf("S1: %d, S2: %d, S3: %d, S4: %d, S5: %d\n", status_s1, status_s2, status_s3, status_s4, status_s5);
+    }
+
     tud_task();                       // tinyusb device task
     cdj_button_poll_events();         // handle debounced button callbacks in main context
     status_led_blinking_task(false);  // Blink the LED to show device status
-    hid_task();                       // Send HID reports to the host
+    // hid_task();                       // Send HID reports to the host
     
     // If the play button is pressed, send MIDI messages  
-    if(playing) {
+    if(playing == true) {
       status_led_blinking_task(true); // If playing, use the play LED for blinking.
     }
-
   }
 }
 
-#pragma region TinyUSB callbacks
 //--------------------------------------------------------------------+
 // initialization
 //--------------------------------------------------------------------+
@@ -209,24 +216,18 @@ int button_init(void) {
     return PICO_OK;
 }
 
-int pt_init(void) {
-  #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
-    // All required pins are defined, proceed with initialization
-    pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
-    if (!pt6324_dev) {
-     printf("Failed to allocate memory for PT6324 device\n");
-     return -1;
-    }
-
-    // Initialize the PT6324 device
-    pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
+int led_init(void) {
+  #if defined(PICO_DEFAULT_LED_PIN) || defined(PLAY_LED_PIN)
+    return PICO_OK;
+  #elif defined(CYW43_WL_GPIO_LED_PIN)
+    cyw43_arch_init();
     return PICO_OK;
   #else 
-    return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
+    return PICO_ERROR_NOT_SUPPORTED;
   #endif
 }
-#pragma endregion
 
+#pragma region TinyUSB callbacks
 //--------------------------------------------------------------------+
 // Device callbacks
 //--------------------------------------------------------------------+
@@ -258,12 +259,35 @@ void tud_resume_cb(void)
 }
 #pragma endregion
 
+#pragma region Display functions (PT6324)
+//--------------------------------------------------------------------+
+// Display task
+//--------------------------------------------------------------------+
+int pt_init(void) {
+  #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
+    // All required pins are defined, proceed with initialization
+    pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
+    if (!pt6324_dev) {
+     printf("Failed to allocate memory for PT6324 device\n");
+     return -1;
+    }
+
+    // Initialize the PT6324 device
+    pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
+    return PICO_OK;
+  #else 
+    return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
+  #endif
+}
+#pragma endregion
+
 #pragma region Button callbacks
 //--------------------------------------------------------------------+
 // Button callback
 //--------------------------------------------------------------------+
 
 void play_button_cb(cdj_button_t *b){
+  printf("Play button callback triggered. Button state: %d\n", b->state);
   if (!b) return;
 
   playing = !b->state;                      // Toggle the playing state based on the button state
@@ -272,56 +296,46 @@ void play_button_cb(cdj_button_t *b){
   const MidiNode *node = find_message(2,1); // Generate MIDI message for Play button
   msg[0] = node->channel;                   // Set MIDI channel
   msg[1] = node->value;                     // Set MIDI value
-  msg[2] = playing ? 127 : 0;               // Set velocity based
+  msg[2] = playing == true ? 127 : 0;               // Set velocity based
   
   midi_task(msg);                           // Send MIDI messages to the host
 }
 
 void cue_button_cb(cdj_button_t *b){
+  printf("Cue button callback triggered. Button state: %d\n", b->state);
   if (!b) return;
+  bool cueing = !b->state;                      // Toggle the cueing state based on the button state
+  
+  if (cueing == true) {
+    playing = false;
+  }
+  else {
+    playing = true;
+  }
 
   const MidiNode *node = find_message(2,2); // Generate MIDI message for Cue button
   msg[0] = node->channel;                   // Set MIDI channel
   msg[1] = node->value;                     // Set MIDI value
-  msg[2] = b->state ? 127 : 0;              // Set velocity based on button state
+  msg[2] = !b->state == true ? 127 : 0;              // Set velocity based on button state
   
   midi_task(msg);                           // Send MIDI messages to the host
-}
-
-
-void cdj_button_cb(cdj_button_t *b) {
-  if (!b) return;
-
-  bool pressed = !b->state;
-
-  //JogWheel: scale velocity by how fast the encoder is being turned.
-  // Search wheel: scale velocity by how fast the encoder is being turned.
-  // if (pressed && (b->pin == SEARCH_FWD_BUTTON_PIN || b->pin == SEARCH_BWD_BUTTON_PIN)) {
-  //   velocity = search_encoder_velocity(b->pin);
+  // TODO: Update the HID report state when a button is pressed or released
+  // // ------------ HID: Update the State-Report --------------------
+  // for (size_t i = 0; i < CDJ_HID_BUTTON_MAP_COUNT; i++) {
+  //     if (cdj_hid_button_map[i].gpio == b->pin) {
+  //         uint8_t idx  = cdj_hid_button_map[i].byte_offset;
+  //         uint8_t mask = cdj_hid_button_map[i].mask;
+  //         if (pressed) {
+  //             hid_in_report[idx] |=  mask;
+  //         } else {s
+  //             hid_in_report[idx] &= ~mask;
+  //         }
+  //         break;
+  //     }
   // }
-  //TODO: Send MIDI messages to the host when a button is pressed or released
-  // msg[0] = message->channel;
-  // msg[1] = message->value;
-  // msg[2] = velocity;
-  
-  
-  message_sent = false;
-  midi_task(msg);     // Send MIDI messages to the host
-    //TODO: Update the HID report state when a button is pressed or released
-    // // ------------ HID: Update the State-Report --------------------
-    // for (size_t i = 0; i < CDJ_HID_BUTTON_MAP_COUNT; i++) {
-    //     if (cdj_hid_button_map[i].gpio == b->pin) {
-    //         uint8_t idx  = cdj_hid_button_map[i].byte_offset;
-    //         uint8_t mask = cdj_hid_button_map[i].mask;
-    //         if (pressed) {
-    //             hid_in_report[idx] |=  mask;
-    //         } else {s
-    //             hid_in_report[idx] &= ~mask;
-    //         }
-    //         break;
-    //     }
-    // }
+
 }
+
 #pragma endregion
 
 #pragma region HID callbacks
@@ -434,7 +448,7 @@ void status_led_blinking_task(bool play_led)
 
   // Blink every interval ms
   uint32_t now_ms = time_us_32() / 1000;
-  if (now_ms - start_ms < blink_interval_ms) return; // not enough time
+  if (now_ms - start_ms < blink_interval_ms) return; // not enough timex
   start_ms = now_ms;
 
   pico_set_led(led_state, play_led);
