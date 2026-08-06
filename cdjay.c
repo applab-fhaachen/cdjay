@@ -67,6 +67,7 @@ enum  {
   BLINK_NOT_MOUNTED = 2500,
   BLINK_MOUNTED = 1000,
   BLINK_SUSPENDED = 100,
+  DONE_INITIALIZING = 500,
 };
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
@@ -105,7 +106,7 @@ void cue_button_cb(cdj_button_t *b);
 // void wah_button_cb(cdj_button_t *b);
 
 void pico_set_led(bool led_on);
-void status_led_blinking_task(bool play_led);
+void status_led_blinking_task();
 
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
 int led_init(void);
@@ -116,18 +117,19 @@ uint8_t search_encoder_velocity(uint pin);
 int pt_init(void);
 
 int main() {
-  board_init();
   // cdj_in_report_init(hid_in_report);
   int button_rc = button_init();
   int led_rc = led_init();
+  int display_rc = pt_init(); // Initialize the PT6324 display driver
 
   //Check if everything is set up correctly, if not, stop the program here.
   hard_assert(led_rc == PICO_OK);
   hard_assert(button_rc == PICO_OK);
-  
+  hard_assert(display_rc == PICO_OK);
+
   // Signal: slow blink = starting
   pico_set_led(true);
-  sleep_ms(blink_interval_ms);
+  sleep_ms(DONE_INITIALIZING);
   pico_set_led(false);
   
   stdio_init_all();
@@ -159,14 +161,13 @@ int main() {
   // button_t *search_fwd_button = create_button_queued(SEARCH_FWD_BUTTON_PIN, button_cb);
   // button_t *search_bwd_button = create_button(SEARCH_BWD_BUTTON_PIN, button_cb);
 
+  tusb_init(); // tinyusb device initialization
   // Signal: medium blink = calling tusb_init
   blink_interval_ms = BLINK_MOUNTED;
   
-  tusb_init(); // tinyusb device initialization
-  
   // Signal: fast blink = tusb_init done
   pico_set_led(true);
-  sleep_ms(blink_interval_ms);
+  sleep_ms(DONE_INITIALIZING);
   pico_set_led(false);
 
   printf("CDJ-Pico initialized. Starting main loop...\n");
@@ -188,8 +189,8 @@ int main() {
 
     tud_task();                       // tinyusb device task
     cdj_button_poll_events();         // handle debounced button callbacks in main context
-    status_led_blinking_task(false);  // Blink the LED to show device status
-    // hid_task();                       // Send HID reports to the host
+    status_led_blinking_task();       // Blink the LED to show device status
+    // hid_task();                    // Send HID reports to the host
     
     // If the play button is pressed, send MIDI messages  
     if(playing == true) {
@@ -268,7 +269,6 @@ int pt_init(void) {
      printf("Failed to allocate memory for PT6324 device\n");
      return -1;
     }
-
     // Initialize the PT6324 device
     pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
     return PICO_OK;
@@ -438,7 +438,7 @@ void pico_set_led(bool led_on) {
   #endif
 }
 
-void status_led_blinking_task(bool play_led)
+void status_led_blinking_task()
 {
   static uint32_t start_ms = 0;
   static bool led_state = false;
