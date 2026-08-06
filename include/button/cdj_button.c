@@ -1,7 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "hardware/gpio.h"
 #include "cdj_button.h"
 #include "button.h" // reuse listen(): one shared GPIO IRQ callback, many pins
+
 
 /**
  * @struct s_line_column_t
@@ -46,6 +48,7 @@ static void k_init(unsigned int k_pin) {
 static void s_init(unsigned int s_pin) {
   gpio_init(s_pin);
   gpio_set_dir(s_pin, GPIO_IN);
+  gpio_pull_down(s_pin);
 }
 
 /**
@@ -56,12 +59,12 @@ static void s_init(unsigned int s_pin) {
  */
 static void handle_s_line_interrupt(void *argument) {
   s_line_column_t *col = (s_line_column_t *)argument;
-
+  uint64_t now = time_us_64();
   for (uint8_t i = 0; i < col->count; i++) {
     cdj_button_t *b = col->buttons[i];
     bool pressed = gpio_get(b->k_line);
+    printf("handle_s_line_interrupt: now=%llu last_change=%d delta=%llu \n", (unsigned long long)now, b->last_change, (unsigned long long)(now - b->last_change));
     if (pressed != b->state) {
-      uint64_t now = time_us_64();
       if (now - b->last_change >= DEBOUNCE_US) {
         b->state = pressed;
         b->last_change = now;
@@ -72,7 +75,8 @@ static void handle_s_line_interrupt(void *argument) {
   }
 }
 
-static cdj_button_t *create_cdj_button_internal(unsigned int s_line, unsigned int k_line, void (*onchange)(cdj_button_t *)) {
+static cdj_button_t *create_cdj_button_internal(unsigned int s_line, 
+  unsigned int k_line, void (*onchange)(cdj_button_t *)) {
   if (s_line >= 28 || k_line >= 28 || !onchange) return NULL;
 
   s_line_column_t *col = &columns[s_line];
