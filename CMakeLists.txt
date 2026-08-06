@@ -23,7 +23,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico2_w CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -71,8 +71,7 @@ target_include_directories(cdjay PRIVATE
     
 
 # Add any user requested libraries
-target_link_libraries(cdjay 
-        pico_cyw43_arch_none
+target_link_libraries(cdjay
         tinyusb_device
         tinyusb_board
         )
