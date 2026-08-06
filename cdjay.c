@@ -91,6 +91,7 @@ bool playing = false; //just for testing if button intterupts work as expected
 static bool message_sent = true; //just for testing. Default is true to avoid sending messages.
 
 uint8_t msg[3];
+pt6324_t *pt6324_dev_g; // Global variable to hold the PT6324 device instance
 
 // This is an example for a state of the play Button
 void led_blinking_task(void);
@@ -120,6 +121,24 @@ void led_pause_task(bool play_led);
 void process_button_events(void);
 uint8_t search_encoder_velocity(uint pin);
 int pt_init(void);
+
+
+int pt_init(void) {
+  #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
+    // All required pins are defined, proceed with initialization
+    pt6324_dev_g = (pt6324_t *)malloc(sizeof(pt6324_t));
+    if (!pt6324_dev_g) {
+     printf("Failed to allocate memory for PT6324 device\n");
+     return -1;
+    }
+
+    // Initialize the PT6324 device
+    pt6324_init(pt6324_dev_g, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
+    return PICO_OK;
+  #else 
+    return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
+  #endif
+}
 
 int main() {
   board_init();
@@ -178,7 +197,7 @@ int main() {
   sleep_ms(100);
   pico_set_led(false, false);
   sleep_ms(100);
-
+  bool screen_on = true;
   
   while (1)
   {
@@ -191,6 +210,12 @@ int main() {
     if(playing) {
       status_led_blinking_task(true); // If playing, use the play LED for blinking.
     }
+
+    //pt6324_set_display(pt6324_dev_g, screen_on, 7); // Update the PT6324 display based on the screen_on state
+    screen_on = !screen_on; // Toggle the screen state for the next iteration
+    //memset(pt6324_dev_g->framebuf, 0xFF, PT6324_RAM_SIZE); // Clear the frame buffer
+    pt6324_flush(pt6324_dev_g);
+    pt6324_write_ram(pt6324_dev_g, 0x00, pt6324_dev_g->framebuf, PT6324_RAM_SIZE); // Write the frame buffer to the PT6324
 
   }
 }
@@ -209,22 +234,6 @@ int button_init(void) {
     return PICO_OK;
 }
 
-int pt_init(void) {
-  #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
-    // All required pins are defined, proceed with initialization
-    pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
-    if (!pt6324_dev) {
-     printf("Failed to allocate memory for PT6324 device\n");
-     return -1;
-    }
-
-    // Initialize the PT6324 device
-    pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
-    return PICO_OK;
-  #else 
-    return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
-  #endif
-}
 #pragma endregion
 
 //--------------------------------------------------------------------+
