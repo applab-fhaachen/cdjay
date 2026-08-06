@@ -24,8 +24,11 @@
 #define KD2 9
 
 // dummy for hid report initialization
+// Used to initialize the hid_in_report array with zeros, 
+// as the actual initialization is not implemented in this example.
 #define CDJ_OUT_REPORT_LEN 64
 #define CDJ_IN_REPORT_LEN 20
+
 #ifndef SPI_PIN_0
 #define SPI_PIN_0 spi0
 #endif
@@ -49,19 +52,20 @@
 #ifndef DOUT_PIN_6324
 #define DOUT_PIN_6324 0
 #endif
-#ifndef DIN_PIN_6324
-#define DIN_PIN_6324  3
+#ifndef STB_PIN_6324
+#define STB_PIN_6324  1
 #endif
 #ifndef CLK_PIN_6324
 #define CLK_PIN_6324  2
 #endif
-#ifndef STB_PIN_6324
-#define STB_PIN_6324  1
+#ifndef DIN_PIN_6324
+#define DIN_PIN_6324  3
 #endif
 
+
 enum  {
-  BLINK_NOT_MOUNTED = 250,
-  BLINK_MOUNTED = 100000,
+  BLINK_NOT_MOUNTED = 2500,
+  BLINK_MOUNTED = 1000,
   BLINK_SUSPENDED = 100,
 };
 
@@ -100,7 +104,7 @@ void cue_button_cb(cdj_button_t *b);
 // void scnf_button_cb(cdj_button_t *b);
 // void wah_button_cb(cdj_button_t *b);
 
-void pico_set_led(bool led_on, bool play_led);
+void pico_set_led(bool led_on);
 void status_led_blinking_task(bool play_led);
 
 uint8_t *generate_midi_signal(uint8_t channel, uint8_t note, uint8_t velocity);
@@ -112,7 +116,6 @@ uint8_t search_encoder_velocity(uint pin);
 int pt_init(void);
 
 int main() {
-  
   board_init();
   // cdj_in_report_init(hid_in_report);
   int button_rc = button_init();
@@ -123,9 +126,9 @@ int main() {
   hard_assert(button_rc == PICO_OK);
   
   // Signal: slow blink = starting
-  pico_set_led(true, false);
-  sleep_ms(5000);
-  pico_set_led(false, false);
+  pico_set_led(true);
+  sleep_ms(blink_interval_ms);
+  pico_set_led(false);
   
   stdio_init_all();
 
@@ -158,16 +161,14 @@ int main() {
 
   // Signal: medium blink = calling tusb_init
   blink_interval_ms = BLINK_MOUNTED;
-  pico_set_led(true, false);
-  pico_set_led(false, true);
   
   tusb_init(); // tinyusb device initialization
   
   // Signal: fast blink = tusb_init done
-  pico_set_led(true, false);
-  sleep_ms(100);
-  pico_set_led(false, false);
-  sleep_ms(100);
+  pico_set_led(true);
+  sleep_ms(blink_interval_ms);
+  pico_set_led(false);
+
   printf("CDJ-Pico initialized. Starting main loop...\n");
   uint32_t last_ms = time_us_32();
   while (1)
@@ -423,14 +424,14 @@ uint8_t search_encoder_velocity(uint pin) {
 // BLINKING TASK
 //--------------------------------------------------------------------+
 // Turn the led on or off
-void pico_set_led(bool led_on, bool play_led) {
+void pico_set_led(bool led_on) {
   #if defined(PICO_DEFAULT_LED_PIN)
     // Just set the GPIO on or off
     gpio_put(PICO_DEFAULT_LED_PIN, led_on);
   // #elif defined(CYW43_WL_GPIO_LED_PIN)
   //   // Pico W / Pico 2 W use the wireless chip LED
   //   cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-  #elif defined(PLAY_LED_PIN) && play_led == true
+  #elif defined(PLAY_LED_PIN)
     gpio_put(PLAY_LED_PIN, led_on);
   #else
     // No LED defined, do nothing
@@ -447,11 +448,11 @@ void status_led_blinking_task(bool play_led)
   if (now_ms - start_ms < blink_interval_ms) return; // not enough timex
   start_ms = now_ms;
 
-  pico_set_led(led_state, play_led);
+  pico_set_led(led_state);
   led_state = 1 - led_state; // toggle
 }
 
 void led_pause_task(bool play_led) {
-  pico_set_led(true, play_led);
+  pico_set_led(true);
 }
 #pragma endregion
