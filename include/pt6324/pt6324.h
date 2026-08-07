@@ -67,7 +67,7 @@ typedef struct {
     uint pin_din;
     uint pin_dout;   // set to 0xFF if key read is unused
     uint8_t framebuf[PT6324_RAM_SIZE];
-    uint16_t spi_clk_speed;
+    uint32_t spi_clk_speed;
 } pt6324_t;
 
 void pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout);

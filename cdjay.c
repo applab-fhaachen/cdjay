@@ -263,12 +263,13 @@ void tud_resume_cb(void)
 //--------------------------------------------------------------------+
 int pt_init(void) {
   #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
-    // All required pins are defined, proceed with initialization
-    pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
-    if (!pt6324_dev) {
-     printf("Failed to allocate memory for PT6324 device\n");
-     return -1;
-    }
+  //Allocate memory for the PT6324 device structure
+  pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));  
+  // All required pins are defined, proceed with initialization
+  if (!pt6324_dev) {
+    printf("Failed to allocate memory for PT6324 device\n");
+    return -1;
+  }
     // Initialize the PT6324 device
     pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
     return PICO_OK;

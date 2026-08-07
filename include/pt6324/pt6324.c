@@ -10,7 +10,6 @@
 //   t_wait  >= 1 µs      (between command byte and first read clock)
 // Pico at 125 MHz — a bare gpio_put is ~10 ns, so we pad with sleep_us(1)
 // on the coarse waits and rely on natural latency for bit timing.
-static inline void t_short(void) { asm volatile("nop\nnop\nnop\nnop\n"); }
 
 static void stb_low(pt6324_t *d)  { gpio_put(d->pin_stb, 0); sleep_us(1); }
 static void stb_high(pt6324_t *d) { sleep_us(1); gpio_put(d->pin_stb, 1); sleep_us(1); }
@@ -28,38 +27,9 @@ static void spi_send_byte(pt6324_t *dev, uint8_t byte) {
     spi_write_blocking(dev->spi, &byte, 1);
 }
 
-// Shift one byte out, LSB first, sampled on rising CLK edge.
-static void shift_out(pt6324_t *d, uint8_t byte) {
-    for (int i = 0; i < 8; i++) {
-        gpio_put(d->pin_clk, 0);
-        gpio_put(d->pin_din, (byte >> i) & 1);
-        t_short();                 // setup
-        gpio_put(d->pin_clk, 1);
-        t_short();                 // hold + clock high
-    }
-    gpio_put(d->pin_clk, 0);       // leave CLK low between bytes
-}
-
-// Shift one byte in, LSB first, sampled by us on CLK falling edge.
-static uint8_t shift_in(pt6324_t *d) {
-    uint8_t v = 0;
-    for (int i = 0; i < 8; i++) {
-        gpio_put(d->pin_clk, 0);
-        t_short();
-        if (gpio_get(d->pin_dout)) v |= (1 << i);
-        gpio_put(d->pin_clk, 1);
-        t_short();
-    }
-    gpio_put(d->pin_clk, 0);
-    return v;
-}
-
-
-
 // One-command frame: STB low → 1 byte → STB high.
 static void cmd1(pt6324_t *d, uint8_t byte) {
     stb_low(d);
-    // shift_out(d, byte);//gpio implementation remnant
     spi_send_byte(d, byte);
     stb_high(d);
 }
@@ -69,36 +39,24 @@ void pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout) {
     dev->pin_clk  = clk;
     dev->pin_din  = din;
     dev->pin_dout = dout;
+    dev->spi_clk_speed = PT6324_CLK_MAX_HZ;
+    dev->spi = spi0; // Use SPI0 by default; can be changed later if needed
 
     spi_init(dev->spi, dev->spi_clk_speed);
-    gpio_set_function(
-    clk,
-    GPIO_FUNC_SPI);//!!! Pins wahrscheinlin in cdjay definieren 
-                   //    und diesen Teil evtl auch auslagern? 
-
-    gpio_set_function(
-    din,
-    GPIO_FUNC_SPI);
-
-    gpio_set_function(
-    dout,
-    GPIO_FUNC_SPI);
-    gpio_init(stb); gpio_set_dir(stb, GPIO_OUT); gpio_put(stb, 1);
-    /*
-    gpio_init(clk); gpio_set_dir(clk, GPIO_OUT); gpio_put(clk, 0);
-    gpio_init(din); gpio_set_dir(din, GPIO_OUT); gpio_put(din, 0);
+    gpio_set_function(clk, GPIO_FUNC_SPI);
+    gpio_set_function(din, GPIO_FUNC_SPI);
+    
     if (dout != 0xFF) {
-        gpio_init(dout);
-        gpio_set_dir(dout, GPIO_IN);
+        gpio_set_function(dout, GPIO_FUNC_SPI);
         gpio_pull_up(dout);        // DOUT is open-drain — external 1k–10k
                                    // pull-up is recommended per datasheet.
     }
 
-    sleep_ms(1);
-    */
+    // STB is manually strobed, not part of the SPI peripheral.
+    gpio_init(stb);
+    gpio_set_dir(stb, GPIO_OUT);
+    gpio_put(stb, 1);
 
-    // Recommended power-up sequence: reset, clear RAM, set mode, turn on.
-    pt6324_reset(dev);
     for (int i = 0; i < PT6324_RAM_SIZE; i++) dev->framebuf[i] = 0x00;
     pt6324_set_mode(dev, PT6324_MODE_16_24);
     pt6324_flush(dev);
@@ -133,21 +91,8 @@ void pt6324_set_display(pt6324_t *dev, bool on, uint8_t dim) {
 }
 
 void pt6324_write_ram(pt6324_t *dev, uint8_t addr, const uint8_t *data, size_t len) {
-    /*
-    if (addr >= PT6324_RAM_SIZE) return;
-    if (addr + len > PT6324_RAM_SIZE) len = PT6324_RAM_SIZE - addr;
-
-    // 1) Data-setting command: write mode, auto-increment. (own frame)
-    cmd1(dev, PT6324_CMD_DATA | PT6324_DATA_WRITE);
-
-    // 2) Address + payload in a single strobed frame.
-    stb_low(dev);
-    shift_out(dev, PT6324_CMD_ADDR | (addr & 0x3F));
-    for (size_t i = 0; i < len; i++) shift_out(dev, data[i]);
-    stb_high(dev);
-    */
+    if (len > PT6324_RAM_SIZE || addr + len > PT6324_RAM_SIZE) return;
     uint8_t tx[1 + PT6324_RAM_SIZE];
-
     tx[0] = reverse8(
         PT6324_CMD_ADDR | addr);
 
@@ -172,18 +117,14 @@ bool pt6324_read_keys(pt6324_t *dev, uint8_t keys[4]) {
     if (dev->pin_dout == 0xFF) return false;
 
     stb_low(dev);
-    shift_out(dev, PT6324_CMD_DATA | PT6324_DATA_READ_KEY);
+    spi_send_byte(dev, PT6324_CMD_DATA | PT6324_DATA_READ_KEY);
 
     // Datasheet: t_wait >= 1 µs between last CLK rise of the command byte
     // and first CLK fall of the read.
     sleep_us(2);
 
-    // DIN must be tri-stated so DOUT (open-drain, external pull-up) can drive.
-    gpio_set_dir(dev->pin_din, GPIO_IN);
+    for (int i = 0; i < 4; i++) keys[i] = spi_read_byte(dev);
 
-    for (int i = 0; i < 4; i++) keys[i] = spi_read_byte(dev);//shift_in(dev);
-
-    gpio_set_dir(dev->pin_din, GPIO_OUT);
     stb_high(dev);
     return true;
 }
