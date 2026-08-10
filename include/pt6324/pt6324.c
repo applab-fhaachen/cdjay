@@ -43,6 +43,11 @@ void pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout) {
     dev->spi = spi0; // Use SPI0 by default; can be changed later if needed
 
     spi_init(dev->spi, dev->spi_clk_speed);
+    // PT6324 expects SPI Mode 3 (CPOL=1, CPHA=1): clock idle high, data
+    // sampled on the rising edge. Bit order is LSB-first on the wire, but
+    // the RP2040 PL022 peripheral only shifts MSB-first — reverse8() in
+    // spi_send_byte()/spi_read_byte() emulates LSB-first in software.
+    spi_set_format(dev->spi, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
     gpio_set_function(clk, GPIO_FUNC_SPI);
     gpio_set_function(din, GPIO_FUNC_SPI);
     

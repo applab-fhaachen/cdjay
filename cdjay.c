@@ -70,6 +70,13 @@ enum  {
   DONE_INITIALIZING = 500,
 };
 
+// ----------------------------------------------------------------
+// Display driver state (PT6324)
+// ----------------------------------------------------------------
+static pt6324_t *pt6324_dev;
+pt6324_t *get_pt6324_dev(void);
+void pt6324_set_all_digits(pt6324_t *dev, uint32_t segments24);
+
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 // const uint LED_PIN = PLAY_LED_PIN;
 
@@ -117,6 +124,8 @@ uint8_t search_encoder_velocity(uint pin);
 int pt_init(void);
 
 int main() {
+  stdio_init_all();
+
   // cdj_in_report_init(hid_in_report);
   int button_rc = button_init();
   int led_rc = led_init();
@@ -131,8 +140,6 @@ int main() {
   pico_set_led(true);
   sleep_ms(DONE_INITIALIZING);
   pico_set_led(false);
-  
-  stdio_init_all();
 
   // init for button handling see: include/button/button.c
   button_system_init();
@@ -165,7 +172,10 @@ int main() {
   // Signal: medium blink = calling tusb_init
   blink_interval_ms = BLINK_MOUNTED;
   
-  // Signal: fast blink = tusb_init done
+  pt6324_t *display = get_pt6324_dev(); // Get the PT6324 device structure for display operations
+  pt6324_set_all_digits(display, 0x00FFFFFF); // Set all segments on for testing
+
+  // Signal: fast blink = tusb_init done & display test done
   pico_set_led(true);
   sleep_ms(DONE_INITIALIZING);
   pico_set_led(false);
@@ -264,7 +274,7 @@ void tud_resume_cb(void)
 int pt_init(void) {
   #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
   //Allocate memory for the PT6324 device structure
-  pt6324_t *pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));  
+  pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
   // All required pins are defined, proceed with initialization
   if (!pt6324_dev) {
     printf("Failed to allocate memory for PT6324 device\n");
@@ -277,6 +287,18 @@ int pt_init(void) {
     return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
   #endif
 }
+
+pt6324_t *get_pt6324_dev(void) {
+  return pt6324_dev;
+}
+
+void pt6324_set_all_digits(pt6324_t *dev, uint32_t segments24) {
+  for (uint8_t digit = 0; digit < PT6324_MAX_DIGITS; digit++) {
+    pt6324_set_digit(dev, digit, segments24);
+  }
+  pt6324_flush(dev);
+}
+
 #pragma endregion
 
 #pragma region Button callbacks
