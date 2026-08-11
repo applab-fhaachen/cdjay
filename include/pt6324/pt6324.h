@@ -70,7 +70,7 @@ typedef struct {
     uint32_t spi_clk_speed;
 } pt6324_t;
 
-void pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout);
+int pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout);
 void pt6324_set_mode(pt6324_t *dev, uint8_t mode);
 void pt6324_set_display(pt6324_t *dev, bool on, uint8_t dim);
 void pt6324_reset(pt6324_t *dev);

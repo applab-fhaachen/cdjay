@@ -45,10 +45,6 @@
 #define CLKB 2
 #endif
 
-#ifndef DIN_PIN
-#define DIN_PIN 5
-#endif 
-
 #ifndef DOUT_PIN_6324
 #define DOUT_PIN_6324 0
 #endif
@@ -281,8 +277,7 @@ int pt_init(void) {
     return -1;
   }
     // Initialize the PT6324 device
-    pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
-    return PICO_OK;
+    return pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
   #else 
     return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
   #endif
@@ -293,7 +288,7 @@ pt6324_t *get_pt6324_dev(void) {
 }
 
 void pt6324_set_all_digits(pt6324_t *dev, uint32_t segments24) {
-  for (uint8_t digit = 0; digit < PT6324_MAX_DIGITS; digit++) {
+  for (uint8_t digit = 1; digit <= PT6324_MAX_DIGITS; digit++) {
     pt6324_set_digit(dev, digit, segments24);
   }
   pt6324_flush(dev);

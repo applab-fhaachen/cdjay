@@ -34,7 +34,7 @@ static void cmd1(pt6324_t *d, uint8_t byte) {
     stb_high(d);
 }
 
-void pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout) {
+int pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout) {
     dev->pin_stb  = stb;
     dev->pin_clk  = clk;
     dev->pin_din  = din;
@@ -66,6 +66,7 @@ void pt6324_init(pt6324_t *dev, uint stb, uint clk, uint din, uint dout) {
     pt6324_set_mode(dev, PT6324_MODE_16_24);
     pt6324_flush(dev);
     pt6324_set_display(dev, true, PT6324_DIM_10_16);
+    return PICO_OK;
 }
 
 void pt6324_reset(pt6324_t *dev) {
@@ -97,21 +98,14 @@ void pt6324_set_display(pt6324_t *dev, bool on, uint8_t dim) {
 
 void pt6324_write_ram(pt6324_t *dev, uint8_t addr, const uint8_t *data, size_t len) {
     if (len > PT6324_RAM_SIZE || addr + len > PT6324_RAM_SIZE) return;
+    cmd1(dev, PT6324_CMD_DATA | PT6324_DATA_WRITE);
     uint8_t tx[1 + PT6324_RAM_SIZE];
-    tx[0] = reverse8(
-        PT6324_CMD_ADDR | addr);
-
+    tx[0] = reverse8(PT6324_CMD_ADDR | addr);
     for(size_t i=0;i<len;i++)
         tx[i+1] = reverse8(data[i]);
-
-    stb_low(dev);
-
-    spi_write_blocking(
-        dev->spi,
-        tx,
-        len + 1);
-
-    stb_high(dev);
+        stb_low(dev);
+        spi_write_blocking(dev->spi, tx, len + 1);
+        stb_high(dev);
 }
 
 void pt6324_flush(pt6324_t *dev) {
