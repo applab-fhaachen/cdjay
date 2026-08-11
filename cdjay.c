@@ -64,6 +64,11 @@ enum  {
   BLINK_MOUNTED = 1000,
   BLINK_SUSPENDED = 100,
   DONE_INITIALIZING = 500,
+
+  // PT6324 hardware-diagnostic blink codes (see pt_init()/main() loop below).
+  BLINK_DISPLAY_INIT_FAILED = 80,   // very fast: pt_init() itself failed
+  BLINK_DISPLAY_BUS_DEAD    = 1500, // slow: key-read stuck at constant 0xFF (DOUT looks disconnected/dead)
+  BLINK_DISPLAY_BUS_ALIVE   = 250,  // medium-fast: key-read bytes vary (chip is responding on DOUT)
 };
 
 // ----------------------------------------------------------------
@@ -130,7 +135,18 @@ int main() {
   //Check if everything is set up correctly, if not, stop the program here.
   hard_assert(led_rc == PICO_OK);
   hard_assert(button_rc == PICO_OK);
-  hard_assert(display_rc == PICO_OK);
+
+  // Unlike the hard_assert()s above, a failed display init gets a visible
+  // signal instead of a silent freeze: very fast blink, forever, so it's
+  // distinguishable from "still booting" or a hang somewhere else.
+  if (display_rc != PICO_OK) {
+    while (true) {
+      pico_set_led(true);
+      sleep_ms(BLINK_DISPLAY_INIT_FAILED);
+      pico_set_led(false);
+      sleep_ms(BLINK_DISPLAY_INIT_FAILED);
+    }
+  }
 
   // Signal: slow blink = starting
   pico_set_led(true);
@@ -191,6 +207,20 @@ int main() {
       int status_s4 = gpio_get(S4);
       int status_s5 = gpio_get(S5);
       printf("S1: %d, S2: %d, S3: %d, S4: %d, S5: %d\n", status_s1, status_s2, status_s3, status_s4, status_s5);
+
+      // PT6324 bus-alive diagnostic: DOUT is pulled up externally, so a
+      // disconnected/dead chip reads back as constant 0xFF on every byte.
+      // Any other pattern (or one that changes) means something on the
+      // other end is actually driving DOUT low at some point.
+      uint8_t keys[4];
+      if (pt6324_read_keys(display, keys)) {
+        bool bus_looks_dead = (keys[0] == 0xFF && keys[1] == 0xFF &&
+                                keys[2] == 0xFF && keys[3] == 0xFF);
+        blink_interval_ms = bus_looks_dead ? BLINK_DISPLAY_BUS_DEAD : BLINK_DISPLAY_BUS_ALIVE;
+        printf("PT6324 keys: %02X %02X %02X %02X (%s)\n",
+               keys[0], keys[1], keys[2], keys[3],
+               bus_looks_dead ? "looks dead" : "looks alive");
+      }
     }
 
     tud_task();                       // tinyusb device task
