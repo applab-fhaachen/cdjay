@@ -29,34 +29,11 @@
 #define CDJ_OUT_REPORT_LEN 64
 #define CDJ_IN_REPORT_LEN 20
 
-#ifndef SPI_PIN_0
-#define SPI_PIN_0 spi0
-#endif
-
-#ifndef CS_PIN
-#define CS_PIN 4 
-#endif
-
-#ifndef RST_PIN
-#define RSTB_PIN 3
-#endif
-
-#ifndef CLKB
-#define CLKB 2
-#endif
-
-#ifndef DOUT_PIN_6324
-#define DOUT_PIN_6324 0
-#endif
-#ifndef STB_PIN_6324
-#define STB_PIN_6324  1
-#endif
-#ifndef CLK_PIN_6324
-#define CLK_PIN_6324  2
-#endif
-#ifndef DIN_PIN_6324
-#define DIN_PIN_6324  3
-#endif
+//SPI-Pin definitions for PT6324
+#define CLK 2
+#define CS 1 
+#define MOSI 3
+#define MISO 0
 
 
 enum  {
@@ -298,7 +275,7 @@ void tud_resume_cb(void)
 // Display task
 //--------------------------------------------------------------------+
 int pt_init(void) {
-  #if defined(SPI_PIN_0) && defined(CLK_PIN_6324) && defined(DIN_PIN_6324) && defined(STB_PIN_6324) && defined(DOUT_PIN_6324)
+  #if defined(spi0) && defined(CLK) && defined(CS) && defined(MISO) && defined(MOSI)
   //Allocate memory for the PT6324 device structure
   pt6324_dev = (pt6324_t *)malloc(sizeof(pt6324_t));
   // All required pins are defined, proceed with initialization
@@ -307,7 +284,7 @@ int pt_init(void) {
     return -1;
   }
     // Initialize the PT6324 device
-    return pt6324_init(pt6324_dev, STB_PIN_6324, CLK_PIN_6324, DIN_PIN_6324, DOUT_PIN_6324);
+    return pt6324_init(pt6324_dev, CS, CLK, MISO, MOSI);
   #else 
     return PICO_ERROR_NOT_SUPPORTED; // Required pins are not defined
   #endif
