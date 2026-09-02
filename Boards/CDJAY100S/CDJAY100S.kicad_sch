@@ -9,6 +9,7 @@
 		(date "2026-09-01")
 		(rev "1.1")
 		(company "FH Aachen University of Applied Sciences")
+		(comment 1 "applab.fh-aachen.de")
 	)
 	(lib_symbols
 		(symbol "2026-07-07_11-12-20:MBR120VLSFT1G"
@@ -3699,161 +3700,6 @@
 						)
 					)
 					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "Device:C"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "C"
-				(at 0.635 2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "C"
-				(at 0.635 -2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" ""
-				(at 0.9652 -3.81 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Unpolarized capacitor"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "cap capacitor"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "C_*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "C_0_1"
-				(polyline
-					(pts
-						(xy -2.032 0.762) (xy 2.032 0.762)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -2.032 -0.762) (xy 2.032 -0.762)
-					)
-					(stroke
-						(width 0.508)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "C_1_1"
-				(pin passive line
-					(at 0 3.81 270)
-					(length 2.794)
-					(name ""
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -3.81 90)
-					(length 2.794)
-					(name ""
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -8207,6 +8053,16 @@
 	)
 	(wire
 		(pts
+			(xy 173.99 198.12) (xy 173.99 201.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1aed6a0b-e4e2-4f14-b93f-6a0e9554859a")
+	)
+	(wire
+		(pts
 			(xy 78.74 217.17) (xy 73.66 217.17)
 		)
 		(stroke
@@ -8897,6 +8753,16 @@
 	)
 	(wire
 		(pts
+			(xy 114.3 160.02) (xy 129.54 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3e9dc059-577d-4fd8-be40-5114424549f4")
+	)
+	(wire
+		(pts
 			(xy 215.9 90.17) (xy 223.52 90.17)
 		)
 		(stroke
@@ -8997,23 +8863,13 @@
 	)
 	(wire
 		(pts
-			(xy 93.98 149.86) (xy 107.95 149.86)
+			(xy 93.98 149.86) (xy 109.22 149.86)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "44a64217-5b26-4f9a-9467-eb0bdd367a46")
-	)
-	(wire
-		(pts
-			(xy 115.57 149.86) (xy 129.54 149.86)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "44ee325d-eb7b-453b-bb03-87f265a5e8bc")
 	)
 	(wire
 		(pts
@@ -9477,7 +9333,7 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 160.02) (xy 107.95 160.02)
+			(xy 99.06 160.02) (xy 109.22 160.02)
 		)
 		(stroke
 			(width 0)
@@ -10427,7 +10283,7 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 186.69) (xy 173.99 191.77)
+			(xy 173.99 186.69) (xy 173.99 193.04)
 		)
 		(stroke
 			(width 0)
@@ -10514,16 +10370,6 @@
 			(type default)
 		)
 		(uuid "9873b5ce-09bd-4b20-b2c6-c870ce598dbc")
-	)
-	(wire
-		(pts
-			(xy 115.57 160.02) (xy 129.54 160.02)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "988626c9-8da2-4128-bdd6-5f2d0efaadb7")
 	)
 	(wire
 		(pts
@@ -10804,6 +10650,16 @@
 			(type default)
 		)
 		(uuid "a7ed292d-8c3e-4a43-b864-dbfb5cd31cd0")
+	)
+	(wire
+		(pts
+			(xy 114.3 149.86) (xy 129.54 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a87d889f-b840-4d77-9077-04f82be79f48")
 	)
 	(wire
 		(pts
@@ -12254,16 +12110,6 @@
 			(type default)
 		)
 		(uuid "eade228b-e21f-4e6d-9968-ca22c72e5eb3")
-	)
-	(wire
-		(pts
-			(xy 173.99 199.39) (xy 173.99 201.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "eb4d5ebc-7ec0-45b1-bf1c-a80d101e2b80")
 	)
 	(wire
 		(pts
@@ -14487,7 +14333,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C")
+		(lib_id "Device:C_Small")
 		(at 111.76 160.02 90)
 		(unit 1)
 		(body_style 1)
@@ -14518,7 +14364,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder"
-			(at 111.76 154.94 90)
+			(at 111.76 160.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14539,7 +14385,7 @@
 				)
 			)
 		)
-		(property "Description" "Unpolarized capacitor"
+		(property "Description" "Unpolarized capacitor, small symbol"
 			(at 111.76 160.02 0)
 			(hide yes)
 			(show_name no)
@@ -16523,7 +16369,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C")
+		(lib_id "Device:C_Small")
 		(at 173.99 195.58 0)
 		(unit 1)
 		(body_style 1)
@@ -16535,7 +16381,7 @@
 		(fields_autoplaced yes)
 		(uuid "6897da61-181a-4d0d-ad51-b25681a6e9e0")
 		(property "Reference" "C20"
-			(at 177.3203 193.0399 0)
+			(at 176.53 194.3162 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -16546,7 +16392,7 @@
 			)
 		)
 		(property "Value" "100 p"
-			(at 177.3203 195.5799 0)
+			(at 176.53 196.8562 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -16557,7 +16403,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder"
-			(at 177.3203 198.1199 0)
+			(at 173.99 195.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16565,7 +16411,6 @@
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Datasheet" ""
@@ -16579,7 +16424,7 @@
 				)
 			)
 		)
-		(property "Description" "Unpolarized capacitor"
+		(property "Description" "Unpolarized capacitor, small symbol"
 			(at 173.99 195.58 0)
 			(hide yes)
 			(show_name no)
@@ -17749,7 +17594,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder"
 			(at 218.44 85.09 0)
 			(hide yes)
 			(show_name no)
@@ -18710,7 +18555,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C")
+		(lib_id "Device:C_Small")
 		(at 111.76 149.86 90)
 		(unit 1)
 		(body_style 1)
@@ -18741,7 +18586,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder"
-			(at 111.76 144.78 90)
+			(at 111.76 149.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18762,7 +18607,7 @@
 				)
 			)
 		)
-		(property "Description" "Unpolarized capacitor"
+		(property "Description" "Unpolarized capacitor, small symbol"
 			(at 111.76 149.86 0)
 			(hide yes)
 			(show_name no)

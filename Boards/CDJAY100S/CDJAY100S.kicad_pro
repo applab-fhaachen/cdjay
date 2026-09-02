@@ -782,7 +782,7 @@
         "uuid": "7da26f59-1cc1-4d8c-b6c1-66e5f20ab1d6"
       }
     ],
-    "used_designators": "DSPB_Conn2,J1,#PWR3-21,C5-6,C18-24,D1-2,D8-16,CR1-2,R7-8,R12-34,TP1,U1",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [
