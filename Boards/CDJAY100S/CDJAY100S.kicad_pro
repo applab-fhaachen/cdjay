@@ -254,7 +254,7 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": "1.1"
+      "sch_revision": "1.2"
     },
     "layer_pairs": [],
     "layer_presets": [],
@@ -532,19 +532,28 @@
         "line_style": 0,
         "name": "AC",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 1,
+        "priority": 2,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.5,
+        "track_width": 0.4,
         "tuning_profile": "",
         "wire_width": 6
+      },
+      {
+        "clearance": 0.2,
+        "name": "GNDS",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": 0,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.4,
+        "tuning_profile": ""
       },
       {
         "clearance": 0.3,
         "name": "Vload",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 0,
+        "priority": 1,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.5,
+        "track_width": 0.4,
         "tuning_profile": ""
       }
     ],
@@ -561,6 +570,10 @@
       {
         "netclass": "Vload",
         "pattern": "Vload"
+      },
+      {
+        "netclass": "GNDS",
+        "pattern": "GNDS"
       }
     ]
   },
@@ -623,13 +636,13 @@
           "group_by": true,
           "label": "Exclude from BOM",
           "name": "${EXCLUDE_FROM_BOM}",
-          "show": true
+          "show": false
         },
         {
           "group_by": true,
           "label": "Exclude from Board",
           "name": "${EXCLUDE_FROM_BOARD}",
-          "show": true
+          "show": false
         },
         {
           "group_by": true,
