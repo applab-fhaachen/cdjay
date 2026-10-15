@@ -1,0 +1,2438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FH Aachen &bull; Project CDJAY &bull; CDJ-800 Digital Twin & Hardware Mapping</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #06090e;
+      --bg-card: rgba(15, 23, 42, 0.88);
+      --border-card: rgba(51, 65, 85, 0.6);
+      --border-highlight: rgba(100, 116, 139, 0.5);
+      --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.35);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.35);
+      --purple: #a855f7;
+      --red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      padding: 1.25rem;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app-wrapper {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .viewport-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    @media (min-width: 1120px) {
+      .viewport-grid {
+        grid-template-columns: 8fr 4fr;
+      }
+    }
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 1rem;
+      padding: 1.15rem;
+      box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .viewport-container {
+      position: relative;
+      width: 100%;
+      height: 560px;
+      background: radial-gradient(circle at 50% 45%, #0e172a 0%, #030712 100%);
+      border-radius: 1rem;
+      border: 1px solid var(--border-card);
+      overflow: hidden;
+    }
+    #renderCanvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 0.55rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      user-select: none;
+      background: rgba(30, 41, 59, 0.75);
+      color: var(--text-main);
+    }
+    .btn:hover {
+      background: rgba(51, 65, 85, 0.9);
+      border-color: var(--border-highlight);
+    }
+    .btn-active-cyan {
+      background: var(--cyan) !important;
+      color: #030712 !important;
+      font-weight: 700;
+      box-shadow: 0 0 20px var(--cyan-glow);
+      border-color: var(--cyan) !important;
+    }
+    .btn-active-emerald {
+      background: var(--emerald) !important;
+      color: #030712 !important;
+      font-weight: 700;
+      box-shadow: 0 0 20px var(--emerald-glow);
+      border-color: var(--emerald) !important;
+    }
+    .btn-active-amber {
+      background: var(--amber) !important;
+      color: #030712 !important;
+      font-weight: 700;
+      box-shadow: 0 0 20px var(--amber-glow);
+      border-color: var(--amber) !important;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 0.375rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .badge-cyan { background: rgba(6, 182, 212, 0.12); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.35); }
+    .badge-emerald { background: rgba(16, 185, 129, 0.12); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge-amber { background: rgba(245, 158, 11, 0.12); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.35); }
+    .badge-purple { background: rgba(168, 85, 247, 0.12); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.35); }
+    .badge-gray { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); border: 1px solid rgba(100, 116, 139, 0.3); }
+
+    .hidden { display: none !important; }
+    input[type=range] {
+      accent-color: var(--cyan);
+      cursor: pointer;
+    }
+    .tech-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+    .tech-table th {
+      padding: 0.65rem 0.8rem;
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.05em;
+    }
+    .tech-table td {
+      padding: 0.65rem 0.8rem;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.35);
+      color: #cbd5e1;
+    }
+    .tech-table tr:hover td {
+      background: rgba(30, 41, 59, 0.35);
+    }
+    .telemetry-readout {
+      background: #03060c;
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.65rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+    
+    <!-- Institutional Academic Header -->
+    <header class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="badge badge-gray">FH AACHEN &bull; FB 5 &bull; INTEGRATED PROJECT</span>
+          <span class="badge badge-cyan">PROJECT CDJAY</span>
+          <span class="badge badge-emerald">CDJ-800 RE-ENGINEERING</span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-black tracking-tight text-white mt-1.5 flex items-center gap-2">
+          Pioneer CDJ-800 Hardware Modernization & Digital Twin
+        </h1>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Exact Mechanical Replica &bull; Full Physical Button Mapping &bull; Dual-Fidelity View (Einfach / Complex) &bull; WiSe 2026/27
+        </p>
+      </div>
+
+      <!-- Controls: View Fidelity & States -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Einfach vs. Complex Toggle -->
+        <div style="background: rgba(3, 7, 18, 0.85); padding: 0.25rem; border-radius: 0.75rem; border: 1px solid var(--border-card); display: flex; gap: 0.25rem;">
+          <button id="btnFidelitySimple" class="btn" style="background: transparent;">⚡ Einfach (CAD)</button>
+          <button id="btnFidelityRealistic" class="btn btn-active-cyan">🎛️ Complex (Studio)</button>
+        </div>
+
+        <!-- Target Media Device Switcher (iPod Touch vs. iPad Mini) -->
+        <div style="background: rgba(3, 7, 18, 0.85); padding: 0.25rem; border-radius: 0.75rem; border: 1px solid var(--border-card); display: flex; gap: 0.25rem;">
+          <button id="btnDeviceIpod" class="btn btn-active-amber" title="iPod Touch 7th Gen (123.4 × 58.6 mm): 0mm Cutting &bull; Fits factory display window directly">📱 iPod Touch (4.0" Zero Cut)</button>
+          <button id="btnDeviceIpad" class="btn" style="background: transparent;" title="iPad Mini 6 (195.4 × 134.8 mm): CDJ-3000 Style Flagship Widescreen">📟 iPad Mini (8.3" Wide)</button>
+        </div>
+
+        <!-- 3 Hardware Lifecycle States -->
+        <div style="background: rgba(3, 7, 18, 0.85); padding: 0.25rem; border-radius: 0.75rem; border: 1px solid var(--border-card); display: flex; gap: 0.25rem;">
+          <button id="btnStateStock" class="btn" style="background: transparent;">1. Stock CDJ-800</button>
+          <button id="btnStateBlueprint" class="btn" style="background: transparent;">2. CAD Cradle</button>
+          <button id="btnStateMod" class="btn btn-active-emerald">3. Production Deck</button>
+        </div>
+
+        <!-- Explode & X-Ray -->
+        <button id="btnXrayToggle" class="btn" style="border: 1px solid rgba(168,85,247,0.4); color: var(--purple);">
+          <span id="xrayLabel">X-Ray: OFF</span>
+        </button>
+        <button id="btnExplodeToggle" class="btn" style="border: 1px solid rgba(6,182,212,0.4); color: var(--cyan);">
+          <span id="explodeLabel">Explode Layers</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Real-Time Interactive Deck Control Bar -->
+    <div class="panel" style="padding: 0.85rem 1.1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; background: linear-gradient(90deg, #070c18, #03060c, #070c18);">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <span class="badge badge-emerald" style="padding: 0.4rem 0.75rem;">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); display: inline-block;"></span>
+          Single-Deck Engine &bull; 60 FPS HID
+        </span>
+
+        <!-- Physical Deck Buttons -->
+        <button id="simPlayBtn" class="btn" style="background: rgba(16,185,129,0.18); color: var(--emerald); border: 1px solid rgba(16,185,129,0.45); font-size: 0.8rem; padding: 0.45rem 1rem;">
+          <span id="simPlayText">&#9658; PLAY</span>
+        </button>
+        <button id="simCueBtn" class="btn" style="background: rgba(245,158,11,0.18); color: var(--amber); border: 1px solid rgba(245,158,11,0.45); font-size: 0.8rem; padding: 0.45rem 1rem;">
+          <span>CUE</span>
+        </button>
+        <button id="simReverseBtn" class="btn" style="background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.35);">
+          REV: OFF
+        </button>
+        <button id="simVinylBtn" class="btn" style="background: rgba(6,182,212,0.15); color: var(--cyan); border: 1px solid rgba(6,182,212,0.35);">
+          VINYL: ON
+        </button>
+        <button id="simMasterTempoBtn" class="btn" style="background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.35);">
+          MT (KEYLOCK): ON
+        </button>
+      </div>
+
+      <!-- BPM & Pitch Telemetry -->
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;">
+          <button id="simTempoRangeBtn" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; font-family: monospace;">&plusmn;10%</button>
+          <span style="color: var(--text-muted); font-family: monospace;">TEMPO:</span>
+          <input type="range" id="simPitchSlider" min="-100" max="100" value="0" style="width: 100px;">
+          <span id="simPitchPct" style="color: var(--cyan); font-family: monospace; width: 45px; text-align: right; font-weight: 600;">0.00%</span>
+        </div>
+
+        <div class="telemetry-readout" style="text-align: right;">
+          <div style="font-size: 0.55rem; color: var(--text-dim); text-transform: uppercase;">Calculated BPM</div>
+          <div id="simBpmDisplay" style="color: var(--emerald); font-weight: 700; font-size: 1rem; line-height: 1.1;">126.00</div>
+        </div>
+
+        <button id="simAudioToggle" class="btn" style="font-size: 0.75rem;">
+          <span>🔊 Synth:</span> <span id="audioStateText" style="color: var(--emerald); font-weight: 700;">Muted</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Workspace (3D Digital Twin + Live Button Mapping Inspector) -->
+    <div class="viewport-grid">
+      
+      <!-- 3D Canvas Viewport Box -->
+      <div class="viewport-container">
+        <!-- View Angle Controls -->
+        <div style="position: absolute; top: 0.85rem; left: 0.85rem; z-index: 10; display: flex; gap: 0.35rem; background: rgba(0,0,0,0.8); padding: 0.35rem 0.5rem; border-radius: 0.65rem; border: 1px solid rgba(255,255,255,0.12);">
+          <button id="camIso" class="btn" style="padding: 0.25rem 0.55rem; font-size: 0.7rem; background: rgba(255,255,255,0.15);">Isometric</button>
+          <button id="camTop" class="btn" style="padding: 0.25rem 0.55rem; font-size: 0.7rem; background: transparent;">Top Deck</button>
+          <button id="camRear" class="btn" style="padding: 0.25rem 0.55rem; font-size: 0.7rem; background: transparent;">Rear I/O</button>
+          <button id="camSide" class="btn" style="padding: 0.25rem 0.55rem; font-size: 0.7rem; background: transparent;">Front Slot</button>
+          <button id="camReset" class="btn" style="padding: 0.25rem 0.55rem; font-size: 0.7rem; background: transparent;" title="Reset Camera">&#8635;</button>
+        </div>
+
+        <!-- Layer Separation Slider -->
+        <div id="explodeSliderContainer" class="hidden" style="position: absolute; top: 0.85rem; right: 0.85rem; z-index: 10; background: rgba(0,0,0,0.85); padding: 0.45rem 0.85rem; border-radius: 0.65rem; border: 1px solid rgba(6,182,212,0.4); display: flex; align-items: center; gap: 0.55rem; font-size: 0.7rem;">
+          <span style="color: var(--cyan); font-family: monospace;">Separation:</span>
+          <input type="range" id="explodeSlider" min="0" max="100" value="70" style="width: 85px;">
+          <span id="explodeVal" style="color: #fff; font-family: monospace; font-weight: 700;">70%</span>
+        </div>
+
+        <!-- Active Mode Status Pill -->
+        <div style="position: absolute; bottom: 0.85rem; left: 0.85rem; z-index: 10; display: flex; align-items: center; gap: 0.55rem; background: rgba(3, 7, 18, 0.85); padding: 0.4rem 0.85rem; border-radius: 0.65rem; border: 1px solid rgba(255,255,255,0.12); font-size: 0.72rem; color: var(--text-muted); pointer-events: none;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); display: inline-block;"></span>
+          <span id="canvasStatusText">Production Deck: 8.3-inch Retina Touch Deck &bull; Complex Studio Mode</span>
+        </div>
+
+        <!-- Tooltip Overlay on Canvas -->
+        <div id="canvasTooltip" class="hidden" style="position: absolute; z-index: 20; background: rgba(3, 7, 18, 0.95); border: 1px solid var(--cyan); padding: 0.35rem 0.65rem; border-radius: 0.4rem; font-size: 0.7rem; color: #fff; pointer-events: none; font-family: monospace; box-shadow: 0 4px 12px rgba(0,0,0,0.8);">
+          Hovered Button
+        </div>
+
+        <canvas id="renderCanvas"></canvas>
+      </div>
+
+      <!-- Right Inspection Sidebar: Real-Time Button Mapping & Signal Telemetry -->
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        
+        <!-- Live Button Signal Inspector Card -->
+        <div class="panel" style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--cyan); text-transform: uppercase; letter-spacing: 0.05em;">
+              Tactile Button Mapping & Telemetry
+            </span>
+            <span class="badge badge-cyan" id="activeControlBadge">CLICK BUTTON ON 3D DECK</span>
+          </div>
+
+          <!-- Active Button Card -->
+          <div style="background: rgba(3, 6, 12, 0.75); border: 1px solid var(--border-card); border-radius: 0.75rem; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(51, 65, 85, 0.4); padding-bottom: 0.5rem;">
+              <div>
+                <div id="btnMapTitle" style="font-size: 0.9rem; font-weight: 700; color: #fff;">PLAY / PAUSE (►/||)</div>
+                <div id="btnMapSub" style="font-size: 0.65rem; color: var(--emerald); font-family: monospace;">Primary Transport Trigger</div>
+              </div>
+              <span id="btnStatusPill" class="badge badge-emerald">ACTIVE</span>
+            </div>
+
+            <p id="btnMapDesc" style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.45;">
+              28mm circular tactile switch with green LED halo ring. Triggers playback toggle or stutters from cue point when pressed.
+            </p>
+
+            <!-- Hardware Signal Breakdown -->
+            <div style="font-size: 0.7rem; font-family: monospace; display: flex; flex-direction: column; gap: 0.35rem;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 0.2rem 0;">
+                <span style="color: var(--text-muted); font-family: sans-serif;">Pioneer 25-Pin FFC:</span>
+                <span id="btnMapPioneerPin" style="color: var(--cyan); font-weight: 700;">Pin 3 (Row 0) &bull; Pin 7 (Col 1)</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 0.2rem 0;">
+                <span style="color: var(--text-muted); font-family: sans-serif;">RP2350 Microcontroller:</span>
+                <span id="btnMapPicoGpio" style="color: var(--purple); font-weight: 700;">GPIO 4 (Strobe) &bull; GPIO 8 (Sense)</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 0.2rem 0;">
+                <span style="color: var(--text-muted); font-family: sans-serif;">USB-HID Packet:</span>
+                <span id="btnMapHidUsage" style="color: var(--amber); font-weight: 700;">Byte 0x02, Bit 0 (0x01)</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 0.2rem 0;">
+                <span style="color: var(--text-muted); font-family: sans-serif;">Host DJ Mapping:</span>
+                <span id="btnMapHostAction" style="color: var(--emerald); font-weight: 700;">Deck 1 Play/Pause Toggle</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Button Click Buttons for fast testing -->
+          <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.7rem;">
+            <button class="quick-btn btn" data-btn="pico2" style="padding: 0.3rem 0.5rem; color: var(--purple); border-color: rgba(168,85,247,0.4); font-weight: 700;">⚡ RP2350 Pico 2</button>
+            <button class="quick-btn btn" data-btn="ports" style="padding: 0.3rem 0.5rem; color: var(--cyan); border-color: rgba(6,182,212,0.4); font-weight: 700;">🔌 All I/O Ports</button>
+            <button class="quick-btn btn" data-btn="screen" style="padding: 0.3rem 0.5rem; color: var(--amber); border-color: rgba(245,158,11,0.4);">Screen (iPod/iPad)</button>
+            <button class="quick-btn btn" data-btn="play" style="padding: 0.3rem 0.5rem;">Play</button>
+            <button class="quick-btn btn" data-btn="cue" style="padding: 0.3rem 0.5rem;">Cue</button>
+            <button class="quick-btn btn" data-btn="jog" style="padding: 0.3rem 0.5rem;">Jog Platter</button>
+            <button class="quick-btn btn" data-btn="reverse" style="padding: 0.3rem 0.5rem;">Reverse</button>
+            <button class="quick-btn btn" data-btn="pitch" style="padding: 0.3rem 0.5rem;">Pitch Fader</button>
+            <button class="quick-btn btn" data-btn="loop_in" style="padding: 0.3rem 0.5rem;">Loop In</button>
+            <button class="quick-btn btn" data-btn="loop_out" style="padding: 0.3rem 0.5rem;">Loop Out</button>
+            <button class="quick-btn btn" data-btn="reloop" style="padding: 0.3rem 0.5rem;">Reloop</button>
+            <button class="quick-btn btn" data-btn="vinyl" style="padding: 0.3rem 0.5rem;">Vinyl Mode</button>
+            <button class="quick-btn btn" data-btn="master_tempo" style="padding: 0.3rem 0.5rem;">Master Tempo</button>
+            <button class="quick-btn btn" data-btn="track_fwd" style="padding: 0.3rem 0.5rem;">Track &gt;&gt;|</button>
+            <button class="quick-btn btn" data-btn="eject" style="padding: 0.3rem 0.5rem;">Eject</button>
+          </div>
+        </div>
+
+        <!-- Architectural Rationale Card -->
+        <div class="panel" style="display: flex; flex-direction: column; gap: 0.6rem; background: linear-gradient(135deg, rgba(17,24,39,0.9), rgba(6,78,59,0.25)); border-color: rgba(16,185,129,0.3);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--emerald); text-transform: uppercase;">
+              Architectural Rationale
+            </span>
+            <span class="badge badge-emerald">Dual-Tier Bridging</span>
+          </div>
+          <p style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.45;">
+            By utilizing the RP2350 microcontroller for bare-metal scanning of all tactile buttons and optical quadrature pulses, the system guarantees <strong>deterministic sub-millisecond tactile latency</strong>, while the host engine natively delivers 60 FPS waveforms and CoreAudio DSP.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Technical Dossier & Engineering Tabs -->
+    <div class="panel" style="display: flex; flex-direction: column; gap: 1.1rem;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-card); padding-bottom: 0.65rem; gap: 0.65rem;">
+        <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #fff; letter-spacing: 0.05em;">
+          Engineering Documentation & Specifications
+        </span>
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+          <button id="tabBtn1" class="btn btn-active-cyan">1. System Architecture</button>
+          <button id="tabBtn2" class="btn">2. Specifications & BOM</button>
+          <button id="tabBtn3" class="btn">3. SBC vs. Dual-Tier Matrix</button>
+          <button id="tabBtn4" class="btn">4. Pico 2 Pinout & Ports</button>
+          <button id="tabBtn5" class="btn" style="color: var(--emerald); border-color: rgba(16,185,129,0.4);"><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--emerald); box-shadow:0 0 8px var(--emerald);"></span> 5. Neural Wiring Map (Pico → CDJ-850)</button>
+          <button id="tabBtn6" class="btn">6. Mechanical 1:1 Blueprint</button>
+        </div>
+      </div>
+
+      <!-- Tab 1: System Architecture -->
+      <div id="tabContent1" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.85rem; font-size: 0.75rem;">
+        <div style="background: rgba(3, 6, 12, 0.6); border: 1px solid var(--border-card); padding: 0.85rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.45rem;">
+          <div style="color: var(--cyan); font-weight: 700; font-family: monospace; font-size: 0.8rem;">1. Tactile Control Surface</div>
+          <p style="color: var(--text-muted); line-height: 1.45;">
+            Preserves 100% of Pioneer tactile components: heavy dual-action optical jog wheel (quadrature pulses), 100mm ALPS 10k&Omega; pitch slider, microswitch Cue/Play matrix, and LED ring indicators.
+          </p>
+        </div>
+
+        <div style="background: rgba(3, 6, 12, 0.6); border: 1px solid var(--border-card); padding: 0.85rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.45rem;">
+          <div style="color: var(--cyan); font-weight: 700; font-family: monospace; font-size: 0.8rem;">2. RP2350 Microcontroller</div>
+          <p style="color: var(--text-muted); line-height: 1.45;">
+            Raspberry Pi Pico 2 runs bare-metal C firmware utilizing the TinyUSB stack. Hardware PIO state machines decode optical quadrature ticks with zero CPU overhead at 1,000 Hz polling rate.
+          </p>
+        </div>
+
+        <div style="background: rgba(3, 6, 12, 0.6); border: 1px solid var(--border-card); padding: 0.85rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.45rem;">
+          <div style="color: var(--cyan); font-weight: 700; font-family: monospace; font-size: 0.8rem;">3. CDJ-850 HID Emulation</div>
+          <p style="color: var(--text-muted); line-height: 1.45;">
+            The firmware broadcasts Pioneer Vendor ID <code style="color: var(--cyan);">0x08E4</code> and Product ID <code style="color: var(--cyan);">0x0159</code>. Standard HID report packets mirror genuine Pioneer protocol for immediate native driver handshake.
+          </p>
+        </div>
+
+        <div style="background: rgba(3, 6, 12, 0.6); border: 1px solid var(--border-card); padding: 0.85rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.45rem;">
+          <div style="color: var(--cyan); font-weight: 700; font-family: monospace; font-size: 0.8rem;">4. Single-Deck Engine & Audio</div>
+          <p style="color: var(--text-muted); line-height: 1.45;">
+            Algoriddim djay running in Single-Deck Mode provides CDJ-3000 class moving multi-band waveforms, track search, key-matching, and streaming over Wi-Fi, outputting low-jitter stereo audio to rear RCA jacks.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tab 2: Specifications & BOM -->
+      <div id="tabContent2" class="hidden" style="overflow-x: auto;">
+        <table class="tech-table">
+          <thead>
+            <tr>
+              <th>Subsystem / Component</th>
+              <th>Technical Specification</th>
+              <th>Part Number / Vendor</th>
+              <th>Function & Integration Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Base Chassis & Deck</td>
+              <td>Pioneer CDJ-800 / CDJ-800MK2 (305 × 344 × 108.5 mm)</td>
+              <td>Pioneer DJ Donor Unit</td>
+              <td>Original tactile chassis; CD drive and vacuum fluorescent display removed.</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">HID Microcontroller</td>
+              <td>RP2350B Dual ARM Cortex-M33 @ 150MHz, 520KB SRAM</td>
+              <td>Raspberry Pi Pico 2</td>
+              <td>Translates 25-pin ribbon matrix and jog pulses to Pioneer CDJ-850 USB HID.</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Smart Media Deck</td>
+              <td>Apple A15 Bionic, 8.3-inch Liquid Retina (2266×1488 @ 326 ppi)</td>
+              <td>iPad Mini 6 / iPod Touch</td>
+              <td>Hosts Algoriddim djay Single-Deck UI, tracks, and CoreAudio stereo DAC.</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Mounting Cradle</td>
+              <td>Custom 3D-Printed PETG (0.2mm layer height, 40% gyroid infill)</td>
+              <td>Custom CAD (FH Aachen)</td>
+              <td>Mounts directly onto Pioneer factory rubber suspension dampers.</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">External Passthrough</td>
+              <td>Panel-mount USB-C female to male right-angle, IP67 rated</td>
+              <td>Amphenol / L-com</td>
+              <td>Installed through 12mm circular hole on rear metal plate for 5V/3A PD power.</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Flex Breakout Interface</td>
+              <td>25-Pin 1.0mm pitch FFC/FPC connector to 2.54mm header</td>
+              <td>Wurth Elektronik / Molex</td>
+              <td>Safely interfaces Pioneer main front panel ribbon to RP2350 GPIO bus.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 3: SBC Linux vs Dual-Tier Architecture Matrix -->
+      <div id="tabContent3" class="hidden" style="overflow-x: auto;">
+        <table class="tech-table">
+          <thead>
+            <tr>
+              <th>Evaluation Parameter</th>
+              <th>Monolithic Linux SBC (Raspberry Pi 4/5)</th>
+              <th style="color: var(--emerald); font-weight: 700;">Dual-Tier RP2350 + Media Engine (Target Spec)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Cold Boot Time</td>
+              <td style="color: var(--amber);">25 &ndash; 45 seconds (Linux kernel, systemd, UI init)</td>
+              <td style="color: var(--emerald); font-weight: 600;">Instant: RP2350 boots in 15ms; media engine resumes immediately</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Audio Output Latency & Jitter</td>
+              <td style="color: var(--red);">Requires PREEMPT_RT kernel tuning, ALSA buffer tweaking (~12-25ms)</td>
+              <td style="color: var(--emerald); font-weight: 600;">Apple CoreAudio hardware pipeline (<5ms buffer latency, zero dropouts)</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">UI Refresh & Waveform Rendering</td>
+              <td style="color: var(--amber);">Heavy custom Qt6 / JUCE DSP code required; GPU fillrate constraints</td>
+              <td style="color: var(--emerald); font-weight: 600;">Native Metal-accelerated 60 FPS multi-band scrolling waveforms out of box</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Jog Wheel Timing Determinism</td>
+              <td style="color: var(--red);">Linux user-space scheduling causes occasional dropped quadrature ticks</td>
+              <td style="color: var(--emerald); font-weight: 600;">Hardware PIO state machines count optical pulses in real time without CPU load</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Thermal Dissipation & Power</td>
+              <td style="color: var(--amber);">7W &ndash; 12W (requires active cooling fan inside sealed chassis)</td>
+              <td style="color: var(--emerald); font-weight: 600;">Pico 2: 0.1W; Media Engine: 2-4W (passive cooling, zero acoustic noise)</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 600; color: #fff;">Mechanical Faceplate Modification</td>
+              <td style="color: var(--amber);">Requires manual milling of top USB-A slot for thumb drives</td>
+              <td style="color: var(--cyan); font-weight: 600;">Zero faceplate cuts: music streams over Wi-Fi / Apple Music / Tidal</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 4: Raspberry Pi Pico 2 Pinout & Complete Port Architecture -->
+      <div id="tabContent4" class="hidden" style="display: flex; flex-direction: column; gap: 1.25rem; font-size: 0.75rem;">
+        
+        <!-- SECTION 1: ALL REQUIRED SYSTEM PORTS MANIFEST -->
+        <div style="background: rgba(3, 6, 12, 0.75); border: 1px solid var(--border-card); padding: 1rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 0.5rem;">
+            <div>
+              <span style="font-weight: 700; color: var(--cyan); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em;">
+                🔌 Complete System Ports & Wiring Harness Manifest
+              </span>
+              <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+                All physical input/output interfaces, connectors, and cable assemblies required to build the player:
+              </p>
+            </div>
+            <span class="badge badge-cyan">5 ESSENTIAL PORTS</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem;">
+            <!-- Port 1 -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(245,158,11,0.3); border-radius: 0.5rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: var(--amber);">PORT 1: Rear USB-C Passthrough (External)</span>
+                <span class="badge badge-amber">12mm Panel Mount</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.7rem;">
+                <strong>Connector:</strong> IP67 Waterproof Panel-Mount USB-C Female Jack (with M12 locking nut).<br/>
+                <strong>Location:</strong> Rear metal backplate (single 12mm drill hole).<br/>
+                <strong>Function:</strong> Accepts external 5V/3A USB-PD charger or connects to a laptop for controller mode.
+              </p>
+            </div>
+
+            <!-- Port 2 -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(168,85,247,0.3); border-radius: 0.5rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: var(--purple);">PORT 2: Pico 2 USB-HID Bridge (Internal)</span>
+                <span class="badge badge-purple">1,000 Hz HID</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.7rem;">
+                <strong>Connector:</strong> Low-profile right-angle USB-C / Micro-USB jumper cable.<br/>
+                <strong>Location:</strong> Middle PETG suspension tray underneath screen.<br/>
+                <strong>Function:</strong> Transmits 1,000 Hz Pioneer CDJ-850 HID control packets directly to the iPod/iPad.
+              </p>
+            </div>
+
+            <!-- Port 3 -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(6,182,212,0.3); border-radius: 0.5rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: var(--cyan);">PORT 3: Pioneer 25-Pin FFC Flex Port (Internal)</span>
+                <span class="badge badge-cyan">1.0mm Pitch ZIF</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.7rem;">
+                <strong>Connector:</strong> 25-Pin 1.0mm pitch FPC/FFC bottom-contact ZIF breakout PCB.<br/>
+                <strong>Location:</strong> Front edge of lower chassis.<br/>
+                <strong>Function:</strong> Reads all Pioneer Play/Cue switches, jog optical quadrature pulses, and pitch fader.
+              </p>
+            </div>
+
+            <!-- Port 4 -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(239,68,68,0.3); border-radius: 0.5rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: var(--red);">PORT 4: Rear Gold-Plated RCA Audio Line-Out</span>
+                <span class="badge badge-gray">24-Bit / 48kHz</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.7rem;">
+                <strong>Connector:</strong> Dual Gold-Plated RCA Female Jacks (Red = Right, White = Left).<br/>
+                <strong>Location:</strong> Rear metal backplate (original Pioneer factory opening).<br/>
+                <strong>Function:</strong> Connects directly into standard DJ mixers (e.g. Pioneer DJM-800/900).
+              </p>
+            </div>
+
+            <!-- Port 5 -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(16,185,129,0.3); border-radius: 0.5rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: var(--emerald);">PORT 5: Internal 5V DC Power Splitter / Hub</span>
+                <span class="badge badge-emerald">Isolated Ground</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.7rem;">
+                <strong>Connector:</strong> USB-PD Power Splitter & 5V/3A DC step-down regulator.<br/>
+                <strong>Location:</strong> Lower chassis base.<br/>
+                <strong>Function:</strong> Powers Pico 2 (0.1W) and charges the iPod/iPad simultaneously without ground loop noise.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: RASPBERRY PI PICO 2 (RP2350) PHYSICAL 40-PIN HEADER MAP -->
+        <div style="background: rgba(3, 6, 12, 0.75); border: 1px solid var(--border-card); padding: 1rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 0.5rem;">
+            <div>
+              <span style="font-weight: 700; color: var(--purple); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em;">
+                ⚡ Raspberry Pi Pico 2 (RP2350) Complete 40-Pin Header Mapping
+              </span>
+              <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Exact electrical assignment of all 40 physical header pins interfacing with the Pioneer CDJ-800 hardware:
+              </p>
+            </div>
+            <span class="badge badge-purple">RP2350 PINOUT</span>
+          </div>
+
+          <!-- Interactive Visual Dual-Column Pinout -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.7rem;">
+            <!-- Left Side Pins (1 to 20) -->
+            <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(51,65,85,0.4); border-radius: 0.5rem; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.25rem;">
+              <div style="font-weight: 700; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.3rem; margin-bottom: 0.2rem;">
+                LEFT HEADER (PINS 1 &ndash; 20)
+              </div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-dim);">Pin 1</span><span style="color: #94a3b8;">GPIO 0 (UART0 TX - Debug)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-dim);">Pin 2</span><span style="color: #94a3b8;">GPIO 1 (UART0 RX - Debug)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 3</span><span style="color: var(--text-dim); font-weight: 700;">GND (Common Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 4</span><span style="color: var(--cyan); font-weight: 700;">GPIO 2 &rarr; FFC Pin 1 (Row 0)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 5</span><span style="color: var(--cyan); font-weight: 700;">GPIO 3 &rarr; FFC Pin 2 (Row 1)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 6</span><span style="color: var(--cyan); font-weight: 700;">GPIO 4 &rarr; FFC Pin 3 (Row 2)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 7</span><span style="color: var(--cyan); font-weight: 700;">GPIO 5 &rarr; FFC Pin 4 (Row 3)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 8</span><span style="color: var(--text-dim); font-weight: 700;">GND (Digital Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 9</span><span style="color: var(--cyan);">GPIO 6 &rarr; FFC Pin 5 (Col 0)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 10</span><span style="color: var(--cyan);">GPIO 7 &rarr; FFC Pin 6 (Col 1)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 11</span><span style="color: var(--cyan);">GPIO 8 &rarr; FFC Pin 7 (Col 2)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 12</span><span style="color: var(--cyan);">GPIO 9 &rarr; FFC Pin 8 (Col 3)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 13</span><span style="color: var(--text-dim); font-weight: 700;">GND (Digital Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--emerald);">Pin 14</span><span style="color: var(--emerald); font-weight: 700;">GPIO 10 &rarr; Jog Phase A (PIO)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--emerald);">Pin 15</span><span style="color: var(--emerald); font-weight: 700;">GPIO 11 &rarr; Jog Phase B (PIO)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--amber);">Pin 16</span><span style="color: var(--amber); font-weight: 700;">GPIO 12 &rarr; Jog Touch Switch</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 17</span><span style="color: #94a3b8;">GPIO 13 (Reserved Direction)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 18</span><span style="color: var(--text-dim); font-weight: 700;">GND (Digital Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--emerald);">Pin 19</span><span style="color: var(--emerald);">GPIO 14 &rarr; Play Green LED Sink</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--amber);">Pin 20</span><span style="color: var(--amber);">GPIO 15 &rarr; Cue Amber LED Sink</span></div>
+            </div>
+
+            <!-- Right Side Pins (21 to 40) -->
+            <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(51,65,85,0.4); border-radius: 0.5rem; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.25rem;">
+              <div style="font-weight: 700; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.3rem; margin-bottom: 0.2rem;">
+                RIGHT HEADER (PINS 21 &ndash; 40)
+              </div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--cyan);">Pin 21</span><span style="color: var(--cyan);">GPIO 16 &rarr; Vinyl Blue LED Sink</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--purple);">Pin 22</span><span style="color: var(--purple);">GPIO 17 &rarr; MT Purple LED Sink</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 23</span><span style="color: var(--text-dim); font-weight: 700;">GND (Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--red);">Pin 24</span><span style="color: var(--red);">GPIO 18 &rarr; Reverse Red LED Sink</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 25</span><span style="color: #94a3b8;">GPIO 19 (Spare / Expansion)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 26</span><span style="color: #94a3b8;">GPIO 20 (I2C0 SDA - Telemetry)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 27</span><span style="color: #94a3b8;">GPIO 21 (I2C0 SCL - Telemetry)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 28</span><span style="color: var(--text-dim); font-weight: 700;">GND (Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 29</span><span style="color: #94a3b8;">GPIO 22 (Spare GPIO)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--red);">Pin 30</span><span style="color: var(--red);">RUN (Hardware Reset Pin)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--purple);">Pin 31</span><span style="color: var(--purple); font-weight: 700;">GPIO 26 / ADC0 &rarr; Pitch 10k Wiper</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 32</span><span style="color: #94a3b8;">GPIO 27 / ADC1 (Spare ADC)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--purple);">Pin 33</span><span style="color: var(--purple); font-weight: 700;">AGND (Analog Low-Noise Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 34</span><span style="color: #94a3b8;">GPIO 28 / ADC2 (Spare ADC)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--purple);">Pin 35</span><span style="color: var(--purple);">ADC_VREF (3.3V Filtered Ref)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(16,185,129,0.15); padding: 0.1rem 0.2rem;"><span style="color: var(--emerald);">Pin 36</span><span style="color: var(--emerald); font-weight: 700;">3V3_OUT (Pico 3.3V Regulator Out)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #94a3b8;">Pin 37</span><span style="color: #94a3b8;">3V3_EN (Power Supply Enable)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 0.1rem 0.2rem;"><span style="color: var(--text-dim);">Pin 38</span><span style="color: var(--text-dim); font-weight: 700;">GND (Ground)</span></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: var(--red);">Pin 39</span><span style="color: var(--red);">VSYS (Main 1.8V&ndash;5.5V Supply)</span></div>
+              <div style="display: flex; justify-content: space-between; background: rgba(239,68,68,0.15); padding: 0.1rem 0.2rem;"><span style="color: var(--red);">Pin 40</span><span style="color: var(--red); font-weight: 700;">VBUS (5V USB Input from Port 1)</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab 5: CDJ-800 to CDJ-850 Master Wiring Map & Emulation Guide -->
+      <div id="tabContent5" class="hidden" style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.75rem;">
+        
+        <!-- Header & Synaptic Filter Controls -->
+        <div style="background: rgba(3, 6, 12, 0.85); border: 1px solid var(--border-card); padding: 0.9rem 1.1rem; border-radius: 0.75rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-weight: 700; color: var(--emerald); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.4rem;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 10px var(--emerald); display: inline-block;"></span>
+                Neural Synaptic Wiring Map: CDJ-800 &rarr; RP2350 Pico 2 &rarr; CDJ-850 Host
+              </span>
+              <span class="badge badge-emerald">LIVE SYNAPTIC FLOW</span>
+            </div>
+            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">
+              Interactive axonal wiring harness &bull; Hover or click any node to trace electrical signal pathways and HID packet serialization.
+            </p>
+          </div>
+
+          <!-- Neural Filter Buttons -->
+          <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;" id="neuralFilterGroup">
+            <button class="btn btn-active-emerald neural-filter-btn" data-filter="all" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">⚡ All Synapses</button>
+            <button class="btn neural-filter-btn" data-filter="matrix" style="padding: 0.3rem 0.6rem; font-size: 0.7rem; background: rgba(30,41,59,0.6);">🎛️ Play/Cue Matrix</button>
+            <button class="btn neural-filter-btn" data-filter="jog" style="padding: 0.3rem 0.6rem; font-size: 0.7rem; background: rgba(30,41,59,0.6);">🌀 Optical Jog PIO</button>
+            <button class="btn neural-filter-btn" data-filter="pitch" style="padding: 0.3rem 0.6rem; font-size: 0.7rem; background: rgba(30,41,59,0.6);">🎚️ Pitch 12-Bit ADC</button>
+            <button class="btn neural-filter-btn" data-filter="led" style="padding: 0.3rem 0.6rem; font-size: 0.7rem; background: rgba(30,41,59,0.6);">💡 LED Feedback</button>
+            <button class="btn neural-filter-btn" data-filter="audio_power" style="padding: 0.3rem 0.6rem; font-size: 0.7rem; background: rgba(30,41,59,0.6);">🔌 Audio & Power</button>
+          </div>
+        </div>
+
+        <!-- The Interactive Neural Wiring Canvas Viewport -->
+        <div style="position: relative; width: 100%; height: 560px; background: radial-gradient(circle at 50% 50%, #081022 0%, #020408 100%); border: 1px solid var(--border-card); border-radius: 1rem; overflow: hidden; box-shadow: inset 0 0 60px rgba(0,0,0,0.8);">
+          <!-- Canvas Top Overlay HUD -->
+          <div style="position: absolute; top: 0.75rem; left: 0.75rem; z-index: 10; display: flex; gap: 0.75rem; font-size: 0.7rem; pointer-events: none;">
+            <div style="background: rgba(3, 7, 18, 0.85); border: 1px solid rgba(255,255,255,0.1); padding: 0.3rem 0.65rem; border-radius: 0.5rem; color: #fff; font-family: monospace;">
+              <span style="color: var(--cyan);">SENSORY:</span> Pioneer CDJ-800
+            </div>
+            <div style="background: rgba(3, 7, 18, 0.85); border: 1px solid rgba(168,85,247,0.4); padding: 0.3rem 0.65rem; border-radius: 0.5rem; color: #c084fc; font-family: monospace;">
+              <span style="color: var(--purple);">SYNAPSE:</span> RP2350 Pico 2
+            </div>
+            <div style="background: rgba(3, 7, 18, 0.85); border: 1px solid rgba(16,185,129,0.4); padding: 0.3rem 0.65rem; border-radius: 0.5rem; color: #34d399; font-family: monospace;">
+              <span style="color: var(--emerald);">MOTOR:</span> CDJ-850 Host Engine
+            </div>
+          </div>
+
+          <div style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 10; background: rgba(3,7,18,0.85); border: 1px solid rgba(255,255,255,0.1); padding: 0.3rem 0.65rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.68rem; color: var(--text-muted); pointer-events: none;">
+            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--emerald); margin-right:4px;"></span>
+            <span id="neuralPulseStatus">PULSE RATE: 1,000 Hz HID</span>
+          </div>
+
+          <!-- The Canvas -->
+          <canvas id="neuralCanvas" style="width: 100% !important; height: 100% !important; display: block; cursor: pointer;"></canvas>
+        </div>
+
+        <!-- Dynamic Synaptic Route Telemetry Card (Updates on Hover / Click) -->
+        <div style="background: rgba(3, 6, 12, 0.85); border: 1px solid var(--border-card); border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span id="synapseBadge" class="badge badge-emerald">ACTIVE SYNAPSE</span>
+              <span id="synapseTitle" style="font-weight: 700; color: #fff; font-size: 0.85rem;">
+                Optical Jog Quadrature Phase A/B ──► RP2350 PIO0 SM0 ──► CDJ-850 HID Platter
+              </span>
+            </div>
+            <span id="synapseVoltage" style="font-family: monospace; font-size: 0.7rem; color: var(--amber);">3.3V LVTTL &bull; 1,000 Pulses/sec</span>
+          </div>
+
+          <!-- Neural Route Chain -->
+          <div style="display: grid; grid-template-columns: 1fr auto 1.2fr auto 1fr; align-items: center; gap: 0.75rem; background: rgba(15, 23, 42, 0.5); padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.7rem;">
+            <!-- Origin -->
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="color: var(--text-dim); font-size: 0.6rem; text-transform: uppercase;">Origin (Pioneer Hardware)</span>
+              <span id="synapseOrigin" style="color: var(--cyan); font-weight: 700;">FFC Pin 9 & 10 (Phototransistors)</span>
+              <span style="color: var(--text-muted); font-size: 0.65rem;">Optical rotary encoder disk</span>
+            </div>
+
+            <div style="color: var(--text-dim); font-size: 1.1rem;">&rarr;</div>
+
+            <!-- Synapse -->
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="color: var(--text-dim); font-size: 0.6rem; text-transform: uppercase;">Synaptic Bridge (RP2350)</span>
+              <span id="synapseBridge" style="color: var(--purple); font-weight: 700;">GPIO 10 & 11 (PIO0 State Machine 0)</span>
+              <span style="color: var(--text-muted); font-size: 0.65rem;">Non-blocking quadrature counter (0% CPU)</span>
+            </div>
+
+            <div style="color: var(--text-dim); font-size: 1.1rem;">&rarr;</div>
+
+            <!-- Target -->
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="color: var(--text-dim); font-size: 0.6rem; text-transform: uppercase;">Host Target (CDJ-850 HID)</span>
+              <span id="synapseTarget" style="color: var(--emerald); font-weight: 700;">Input Report 0x01, Byte 0x04</span>
+              <span style="color: var(--text-muted); font-size: 0.65rem;">Algoriddim djay 60 FPS Platter Scratch</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="tabContent6" class="hidden" style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.75rem;">
+        <div style="background: rgba(3, 6, 12, 0.7); padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(245,158,11,0.35); display: flex; flex-direction: column; gap: 0.65rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 700; color: var(--amber); font-size: 0.85rem;">
+              Rear Metal Panel: 12.0 mm USB-C Panel-Mount Cutout Blueprint
+            </span>
+            <span class="badge badge-amber">Only Chassis Cut Required</span>
+          </div>
+          <p style="color: var(--text-muted); line-height: 1.45;">
+            The top deck faceplate requires <strong>zero cutting</strong>. The rear metal housing requires exactly one 12.0mm circular D-hole cutout positioned 55mm from the bottom plate, centered between the digital audio coaxial jack and the chassis perimeter.
+          </p>
+
+          <!-- Precision Vector CAD Drawing -->
+          <div style="background: #02050b; border: 1px dashed #334155; border-radius: 0.5rem; padding: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <svg width="100%" height="120" viewBox="0 0 540 120" style="max-width: 540px;">
+              <rect x="10" y="10" width="520" height="100" rx="8" fill="#0b1120" stroke="#475569" stroke-width="2" />
+              
+              <rect x="35" y="32" width="75" height="56" rx="4" fill="#1e293b" stroke="#334155" />
+              <circle cx="58" cy="60" r="11" fill="#dc2626" stroke="#991b1b" stroke-width="2" />
+              <circle cx="90" cy="60" r="11" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" />
+              <text x="44" y="26" fill="#94a3b8" font-size="9" font-family="monospace">ANALOG RCA</text>
+
+              <rect x="135" y="32" width="50" height="56" rx="4" fill="#1e293b" stroke="#334155" />
+              <circle cx="160" cy="60" r="9" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" />
+              <text x="138" y="26" fill="#94a3b8" font-size="9" font-family="monospace">DIGITAL</text>
+
+              <circle cx="218" cy="60" r="8" fill="#000" stroke="#475569" stroke-width="1.5" />
+              <text x="200" y="26" fill="#94a3b8" font-size="9" font-family="monospace">CONTROL</text>
+
+              <g>
+                <circle cx="415" cy="60" r="20" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,3" />
+                <circle cx="415" cy="60" r="15" fill="#000" stroke="#f59e0b" stroke-width="1.5" />
+                <rect x="406" y="57" width="18" height="6.5" rx="2" fill="#f59e0b" />
+                <line x1="385" y1="60" x2="445" y2="60" stroke="#f59e0b" stroke-width="0.8" />
+                <line x1="415" y1="30" x2="415" y2="90" stroke="#f59e0b" stroke-width="0.8" />
+                <text x="375" y="26" fill="#f59e0b" font-size="10" font-weight="bold" font-family="monospace">USB-C PASSTHROUGH</text>
+                <text x="382" y="105" fill="#f59e0b" font-size="9" font-family="monospace">&Oslash; 12.0 mm (D-Flat)</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Real-Time 3D Digital Twin Engine & Full Button Mapping -->
+  <script>
+    const canvas = document.getElementById("renderCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let viewportWidth = 800;
+    let viewportHeight = 560;
+    let cachedCx = 400;
+    let cachedCy = 290;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      viewportWidth = rect.width;
+      viewportHeight = rect.height;
+      if (viewportWidth === 0 || viewportHeight === 0) return;
+
+      canvas.width = Math.round(viewportWidth * dpr);
+      canvas.height = Math.round(viewportHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      cachedCx = viewportWidth / 2;
+      cachedCy = viewportHeight / 2 + 10;
+    }
+
+    // Modes & States
+    let fidelityMode = "realistic"; // "simple" or "realistic"
+    let currentState = "mod"; // "stock", "blueprint", "mod"
+    let isExploded = false;
+    let explodeAmount = 0.7;
+    let isXray = false;
+    let rotX = -0.52;
+    let rotY = 0.65;
+    let zoom = 1.05;
+
+    // DJ Simulation Engine State
+    let isPlaying = false;
+    let isCuePressed = false;
+    let isReverse = false;
+    let isVinylMode = true;
+    let isMasterTempo = true;
+    let pitchRangeIndex = 1; // 0: 6%, 1: 10%, 2: 16%, 3: 100% (WIDE)
+    const pitchRanges = [6, 10, 16, 100];
+    let pitchVal = 0.0;
+    let jogRotationAngle = 0;
+    let jogVelocity = 0;
+    let waveformOffset = 0;
+    let isAudioEnabled = false;
+    let activeLoop = null; // null or { start: 0, end: 200 }
+
+    // Interactive button definitions for hit-testing and mapping
+    let targetDevice = "ipod"; // "ipod" (4.0" factory window drop-in) or "ipad" (8.3" wide)
+
+    const deckButtons = {
+      pico2: {
+        id: "pico2",
+        label: "Raspberry Pi Pico 2 (RP2350 Architecture)",
+        sub: "Bare-Metal HID Bridge & PIO Quadrature Decoder",
+        pos: [-22, 10, 0],
+        radius: 20,
+        pioneerPin: "Interfaces all 25 front panel lines + optical rotary jog",
+        picoGpio: "GPIO 2-9 (Matrix), GPIO 10-12 (Jog PIO), GPIO 26 (ADC0)",
+        hidUsage: "Pioneer CDJ-850 HID @ 1,000 Hz (VID 0x08E4, PID 0x0159)",
+        hostAction: "Encodes physical button states and platter ticks for host engine",
+        desc: "Equipped with dual ARM Cortex-M33 cores @ 150MHz and 520KB SRAM. Hardware PIO state machines count optical jog ticks at high speed with 0% CPU overhead."
+      },
+      ports: {
+        id: "ports",
+        label: "I/O Ports & Interconnect Architecture",
+        sub: "5 Essential System Ports & Cabling Harness",
+        pos: [70, 150, -25],
+        radius: 22,
+        pioneerPin: "Rear 12mm USB-C, 25-pin FFC, Dual Gold RCA, Pico USB",
+        picoGpio: "Power Distribution & Line-Level Audio Routing",
+        hidUsage: "USB-PD Charging (5V/3A) + 1,000 Hz HID Data Bus",
+        hostAction: "Seamless power, control, and analog master output",
+        desc: "Includes Rear 12mm USB-C PD Passthrough, Pioneer 25-pin FFC 1.0mm ZIF Breakout, Internal Pico USB Bridge, and Rear Gold-Plated RCA stereo outputs."
+      },
+      screen: {
+        id: "screen",
+        label: "iPod Touch 7th Gen (4.0-inch Display)",
+        sub: "Drop-in Factory Window Replacement (0mm Cut)",
+        pos: [0, -85, 42],
+        radius: 35,
+        pioneerPin: "Fits inside factory 130 × 65 mm display aperture",
+        picoGpio: "RP2350 USB-HID Bridge (VID 0x08E4, PID 0x0159)",
+        hidUsage: "Single-Deck Mode via Lightning/USB-C Camera Kit",
+        hostAction: "60 FPS Waveform UI & CoreAudio Line Out",
+        desc: "123.4 × 58.6 mm form factor slides directly behind the original Pioneer curved display glass without any plastic trimming. Runs Algoriddim djay with native CDJ-850 HID support."
+      },
+      play: {
+        id: "play",
+        label: "PLAY / PAUSE (►/||)",
+        sub: "Primary Transport Switch",
+        pos: [-90, 115, 42],
+        radius: 12,
+        pioneerPin: "Pin 3 (Row 0) &bull; Pin 7 (Col 1)",
+        picoGpio: "GPIO 4 (Strobe) &bull; GPIO 8 (Sense)",
+        hidUsage: "Byte 0x02, Bit 0 (0x01)",
+        hostAction: "Deck 1 Play/Pause Toggle",
+        desc: "28mm round tactile switch with green LED halo ring. Starts/pauses playback or stutters from cue point."
+      },
+      cue: {
+        id: "cue",
+        label: "CUE / REAL-TIME CUE",
+        sub: "Cue Point Return & Audition",
+        pos: [-90, 85, 42],
+        radius: 12,
+        pioneerPin: "Pin 3 (Row 0) &bull; Pin 8 (Col 2)",
+        picoGpio: "GPIO 4 (Strobe) &bull; GPIO 9 (Sense)",
+        hidUsage: "Byte 0x02, Bit 1 (0x02)",
+        hostAction: "Seek to Cue Point / Stutter Audition",
+        desc: "28mm round tactile switch with amber LED halo ring. While track is playing, pressing Cue immediately stops playback and returns to cue position."
+      },
+      reverse: {
+        id: "reverse",
+        label: "REVERSE SWITCH",
+        sub: "Directional Playback Toggle",
+        pos: [-95, -30, 42],
+        radius: 8,
+        pioneerPin: "Pin 2 (Row 1) &bull; Pin 7 (Col 1)",
+        picoGpio: "GPIO 3 (Strobe) &bull; GPIO 8 (Sense)",
+        hidUsage: "Byte 0x02, Bit 6 (0x40)",
+        hostAction: "Reverse Playback Direction",
+        desc: "Directional toggle switch. Reverses rotation angle and audio waveform scrolling in real time."
+      },
+      track_prev: {
+        id: "track_prev",
+        label: "TRACK SEARCH |<<",
+        sub: "Previous Track Select",
+        pos: [-92, 55, 42],
+        radius: 7,
+        pioneerPin: "Pin 1 (Row 2) &bull; Pin 7 (Col 1)",
+        picoGpio: "GPIO 2 (Strobe) &bull; GPIO 8 (Sense)",
+        hidUsage: "Byte 0x03, Bit 2 (0x04)",
+        hostAction: "Load Previous Track in Playlist",
+        desc: "Loads the previous track in the active playlist or skips to the previous cue point."
+      },
+      track_next: {
+        id: "track_next",
+        label: "TRACK SEARCH >>|",
+        sub: "Next Track Select",
+        pos: [-74, 55, 42],
+        radius: 7,
+        pioneerPin: "Pin 1 (Row 2) &bull; Pin 8 (Col 2)",
+        picoGpio: "GPIO 2 (Strobe) &bull; GPIO 9 (Sense)",
+        hidUsage: "Byte 0x03, Bit 3 (0x08)",
+        hostAction: "Load Next Track in Playlist",
+        desc: "Loads the next track in the active playlist with instant waveform caching."
+      },
+      loop_in: {
+        id: "loop_in",
+        label: "LOOP IN / REAL-TIME CUE",
+        sub: "Set Loop Start Marker",
+        pos: [-92, 0, 42],
+        radius: 7,
+        pioneerPin: "Pin 4 (Row 3) &bull; Pin 7 (Col 1)",
+        picoGpio: "GPIO 5 (Strobe) &bull; GPIO 8 (Sense)",
+        hidUsage: "Byte 0x04, Bit 0 (0x01)",
+        hostAction: "Set Loop In Position",
+        desc: "Sets the loop start point on the current beat grid in real time."
+      },
+      loop_out: {
+        id: "loop_out",
+        label: "LOOP OUT / ADJUST",
+        sub: "Set Loop End Marker",
+        pos: [-72, 0, 42],
+        radius: 7,
+        pioneerPin: "Pin 4 (Row 3) &bull; Pin 8 (Col 2)",
+        picoGpio: "GPIO 5 (Strobe) &bull; GPIO 9 (Sense)",
+        hidUsage: "Byte 0x04, Bit 1 (0x02)",
+        hostAction: "Set Loop Out & Engage Loop",
+        desc: "Sets the loop exit boundary and begins seamless 4-beat looping."
+      },
+      reloop: {
+        id: "reloop",
+        label: "RELOOP / EXIT",
+        sub: "Disengage / Re-engage Loop",
+        pos: [-52, 0, 42],
+        radius: 7,
+        pioneerPin: "Pin 4 (Row 3) &bull; Pin 6 (Col 0)",
+        picoGpio: "GPIO 5 (Strobe) &bull; GPIO 7 (Sense)",
+        hidUsage: "Byte 0x04, Bit 2 (0x04)",
+        hostAction: "Toggle Loop Exit / Return",
+        desc: "Exits active loop or returns to the previously stored loop boundary."
+      },
+      vinyl: {
+        id: "vinyl",
+        label: "VINYL MODE SELECT",
+        sub: "Touch Platter Mode Switch",
+        pos: [72, -30, 42],
+        radius: 7,
+        pioneerPin: "Pin 2 (Row 1) &bull; Pin 8 (Col 2)",
+        picoGpio: "GPIO 3 (Strobe) &bull; GPIO 9 (Sense)",
+        hidUsage: "Byte 0x02, Bit 7 (0x80)",
+        hostAction: "Toggle Vinyl Touch vs CDJ Pitch Bend",
+        desc: "Switches platter between Vinyl Scratch mode (touch to stop & scratch) and CDJ mode (rim nudge only)."
+      },
+      master_tempo: {
+        id: "master_tempo",
+        label: "MASTER TEMPO (KEY LOCK)",
+        sub: "Musical Key Lock",
+        pos: [92, 35, 42],
+        radius: 7,
+        pioneerPin: "Pin 1 (Row 2) &bull; Pin 6 (Col 0)",
+        picoGpio: "GPIO 2 (Strobe) &bull; GPIO 7 (Sense)",
+        hidUsage: "Byte 0x03, Bit 4 (0x10)",
+        hostAction: "Lock Audio Pitch / Key Lock Toggle",
+        desc: "Locks track key independent of tempo shifts. Prevents voice pitch changes when accelerating BPM."
+      },
+      pitch_range: {
+        id: "pitch_range",
+        label: "TEMPO RANGE SELECT",
+        sub: "Slider Sensitivity (±6%, ±10%, ±16%, WIDE)",
+        pos: [92, 10, 42],
+        radius: 7,
+        pioneerPin: "Pin 1 (Row 2) &bull; Pin 5 (Col 3)",
+        picoGpio: "GPIO 2 (Strobe) &bull; GPIO 6 (Sense)",
+        hidUsage: "Byte 0x03, Bit 5 (0x20)",
+        hostAction: "Cycle Pitch Slider Range",
+        desc: "Toggles fader sensitivity between &plusmn;6%, &plusmn;10%, &plusmn;16%, and &plusmn;100% (WIDE)."
+      },
+      pitch: {
+        id: "pitch",
+        label: "100mm TEMPO / PITCH SLIDER",
+        sub: "Linear Potentiometer (10kΩ ALPS)",
+        pos: [92, 97.5, 42],
+        radius: 14,
+        pioneerPin: "Pin 12 (Analog Wiper)",
+        picoGpio: "GPIO 26 (ADC0 &bull; 12-Bit Resolution)",
+        hidUsage: "Byte 0x06 & 0x07 (10-bit Raw ADC)",
+        hostAction: "Continuous Tempo Multiplier",
+        desc: "100mm high-grade ALPS fader. Center green LED illuminates at 0.00% zero-detent position."
+      },
+      eject: {
+        id: "eject",
+        label: "EJECT BUTTON",
+        sub: "Disc / Media Eject",
+        pos: [-105, -130, 42],
+        radius: 8,
+        pioneerPin: "Pin 2 (Row 1) &bull; Pin 6 (Col 0)",
+        picoGpio: "GPIO 3 (Strobe) &bull; GPIO 7 (Sense)",
+        hidUsage: "Byte 0x02, Bit 3 (0x08)",
+        hostAction: "Eject Media / Unload Track",
+        desc: "Eject key located at top-left. Flashes red when media is unloading."
+      },
+      jog: {
+        id: "jog",
+        label: "206mm OPTICAL JOG WHEEL",
+        sub: "Dual-Action Quadrature Platter",
+        pos: [0, 35, 42],
+        radius: 72,
+        pioneerPin: "Pin 9 (Phase A) &bull; Pin 10 (Phase B) &bull; Pin 11 (Touch)",
+        picoGpio: "GPIO 10 & 11 (PIO0 SM0) &bull; GPIO 12 (Touch Sense)",
+        hidUsage: "Byte 0x04 (Jog Displacement Tick Byte)",
+        hostAction: "Real-time Scratch & Platter Nudge",
+        desc: "Dual-action mechanical assembly. Center vinyl pressure switch senses touch; outer optical wheel generates 1,000 quadrature pulses per second."
+      }
+    };
+
+    let activeSelectedButton = deckButtons.play;
+
+    function selectButton(btnId) {
+      if (!deckButtons[btnId]) return;
+      activeSelectedButton = deckButtons[btnId];
+
+      document.getElementById("btnMapTitle").innerText = activeSelectedButton.label;
+      document.getElementById("btnMapSub").innerText = activeSelectedButton.sub;
+      document.getElementById("btnMapDesc").innerText = activeSelectedButton.desc;
+      document.getElementById("btnMapPioneerPin").innerHTML = activeSelectedButton.pioneerPin;
+      document.getElementById("btnMapPicoGpio").innerHTML = activeSelectedButton.picoGpio;
+      document.getElementById("btnMapHidUsage").innerHTML = activeSelectedButton.hidUsage;
+      document.getElementById("btnMapHostAction").innerHTML = activeSelectedButton.hostAction;
+      document.getElementById("activeControlBadge").innerText = "INSPECTING: " + activeSelectedButton.id.toUpperCase();
+
+      requestRender();
+    }
+
+    document.querySelectorAll(".quick-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-btn");
+        selectButton(id);
+        triggerButtonAction(id);
+      });
+    });
+
+    function triggerButtonAction(id) {
+      initAudio();
+      if (id === "play") {
+        isPlaying = !isPlaying;
+        updatePlayUi();
+      } else if (id === "cue") {
+        isCuePressed = true;
+        if (isPlaying) {
+          isPlaying = false;
+          updatePlayUi();
+        }
+        waveformOffset = 0;
+        if (isAudioEnabled && audioCtx) playKick(audioCtx.currentTime);
+        setTimeout(() => { isCuePressed = false; requestRender(); }, 180);
+      } else if (id === "reverse") {
+        isReverse = !isReverse;
+        const revBtn = document.getElementById("simReverseBtn");
+        revBtn.innerText = isReverse ? "REV: ON" : "REV: OFF";
+        revBtn.style.color = isReverse ? "var(--red)" : "var(--text-muted)";
+      } else if (id === "vinyl") {
+        isVinylMode = !isVinylMode;
+        const vBtn = document.getElementById("simVinylBtn");
+        vBtn.innerText = isVinylMode ? "VINYL: ON" : "VINYL: OFF";
+        vBtn.style.color = isVinylMode ? "var(--cyan)" : "var(--text-muted)";
+      } else if (id === "master_tempo") {
+        isMasterTempo = !isMasterTempo;
+        const mtBtn = document.getElementById("simMasterTempoBtn");
+        mtBtn.innerText = isMasterTempo ? "MT (KEYLOCK): ON" : "MT (KEYLOCK): OFF";
+        mtBtn.style.color = isMasterTempo ? "var(--purple)" : "var(--text-muted)";
+      } else if (id === "pitch_range") {
+        pitchRangeIndex = (pitchRangeIndex + 1) % pitchRanges.length;
+        const currentR = pitchRanges[pitchRangeIndex];
+        document.getElementById("simTempoRangeBtn").innerText = "±" + currentR + "%";
+        updateBpmReadout();
+      } else if (id === "loop_in") {
+        activeLoop = { start: waveformOffset, end: waveformOffset + 240 };
+      } else if (id === "loop_out") {
+        if (!activeLoop) activeLoop = { start: Math.max(0, waveformOffset - 240), end: waveformOffset };
+        else activeLoop.end = waveformOffset;
+      } else if (id === "reloop") {
+        if (activeLoop) activeLoop = null;
+        else activeLoop = { start: waveformOffset, end: waveformOffset + 240 };
+      }
+      requestRender();
+    }
+
+    function updatePlayUi() {
+      const simPlayBtn = document.getElementById("simPlayBtn");
+      const simPlayText = document.getElementById("simPlayText");
+      if (isPlaying) {
+        simPlayBtn.style.background = "var(--emerald)";
+        simPlayBtn.style.color = "#030712";
+        simPlayText.innerHTML = "&#10074;&#10074; PAUSE";
+        if (audioCtx) nextBeatTime = audioCtx.currentTime;
+      } else {
+        simPlayBtn.style.background = "rgba(16,185,129,0.18)";
+        simPlayBtn.style.color = "var(--emerald)";
+        simPlayText.innerHTML = "&#9658; PLAY";
+      }
+      requestRender();
+    }
+
+    function updateBpmReadout() {
+      const maxRange = pitchRanges[pitchRangeIndex];
+      const tempoMultiplier = 1.0 + (pitchVal / 100) * (maxRange / 100);
+      const calculatedBpm = (126.0 * tempoMultiplier).toFixed(2);
+      document.getElementById("simBpmDisplay").innerText = calculatedBpm;
+      const sign = pitchVal > 0 ? "+" : "";
+      document.getElementById("simPitchPct").innerText = sign + ((pitchVal / 100) * maxRange).toFixed(2) + "%";
+    }
+
+    // Audio Engine
+    let audioCtx = null;
+    let nextBeatTime = 0;
+    let stepCount = 0;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+
+    function playKick(time) {
+      if (!isAudioEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(140, time);
+        osc.frequency.exponentialRampToValueAtTime(32, time + 0.08);
+        gain.gain.setValueAtTime(0.7, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(time);
+        osc.stop(time + 0.12);
+      } catch(e) {}
+    }
+
+    function playHiHat(time) {
+      if (!isAudioEnabled || !audioCtx) return;
+      try {
+        const bufferSize = Math.floor(audioCtx.sampleRate * 0.04);
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "highpass";
+        filter.frequency.value = 7000;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.2, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(time);
+      } catch(e) {}
+    }
+
+    function audioTick() {
+      if (!isPlaying || !isAudioEnabled || !audioCtx) return;
+      const maxRange = pitchRanges[pitchRangeIndex];
+      const baseBpm = 126.0 * (1.0 + (pitchVal / 100) * (maxRange / 100));
+      const secondsPerBeat = 60.0 / baseBpm / 2;
+
+      while (nextBeatTime < audioCtx.currentTime + 0.1) {
+        if (stepCount % 2 === 0) playKick(nextBeatTime);
+        else playHiHat(nextBeatTime);
+        stepCount++;
+        nextBeatTime += secondsPerBeat;
+      }
+    }
+
+    // 3D Projection Engine
+    function project(x, y, z) {
+      const radX = rotX;
+      const y1 = y * Math.cos(radX) - z * Math.sin(radX);
+      const z1 = y * Math.sin(radX) + z * Math.cos(radX);
+
+      const radY = rotY;
+      const x2 = x * Math.cos(radY) + z1 * Math.sin(radY);
+      const z2 = -x * Math.sin(radY) + z1 * Math.cos(radY);
+
+      const fov = 500;
+      const dist = 450;
+      const scale = (fov / (fov + z2 + dist)) * zoom;
+
+      return {
+        x: cachedCx + x2 * scale,
+        y: cachedCy + y1 * scale,
+        z: z2,
+        scale: scale
+      };
+    }
+
+    // Render Engine
+    function draw() {
+      ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+
+      // Studio Blueprint Grid
+      ctx.strokeStyle = (fidelityMode === "simple") ? "rgba(6, 182, 212, 0.08)" : "rgba(255, 255, 255, 0.035)";
+      ctx.lineWidth = 1;
+      const step = 28;
+      for (let x = 0; x < viewportWidth; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, viewportHeight); ctx.stroke();
+      }
+      for (let y = 0; y < viewportHeight; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(viewportWidth, y); ctx.stroke();
+      }
+
+      const explodeOffset = isExploded ? (explodeAmount * 70) : 0;
+      const zBase = -35;
+      const zMid = 0 + (explodeOffset * 0.5);
+      const zTop = 40 + (explodeOffset * 1.2);
+      
+      // Pioneer CDJ-800 Exact Aspect Ratio (305mm wide × 344mm deep)
+      const w = 126, d = 152;
+
+      // -----------------------------------------------------------
+      // LAYER 1: LOWER HOUSING & REAR PORTS
+      // -----------------------------------------------------------
+      const bV = [
+        [-w, -d, zBase], [w, -d, zBase], [w, d, zBase], [-w, d, zBase],
+        [-w, -d, zBase + 26], [w, -d, zBase + 26], [w, d, zBase + 26], [-w, d, zBase + 26]
+      ].map(p => project(p[0], p[1], p[2]));
+
+      if (fidelityMode === "simple") {
+        // Einfach CAD mode: Clean structural wireframe with dimension callout
+        ctx.fillStyle = isXray ? "rgba(15, 23, 42, 0.3)" : "rgba(30, 41, 59, 0.85)";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(bV[4].x, bV[4].y); ctx.lineTo(bV[5].x, bV[5].y);
+        ctx.lineTo(bV[6].x, bV[6].y); ctx.lineTo(bV[7].x, bV[7].y);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // Dimension Callouts
+        ctx.fillStyle = "#38bdf8"; ctx.font = "bold 9px monospace";
+        const dimW = project(0, d + 15, zBase);
+        ctx.fillText("CHASSIS: 305mm × 344mm × 108.5mm", dimW.x - 90, dimW.y);
+
+      } else {
+        // Complex Realistic mode: Matte dark chassis casing with chamfered edges
+        ctx.fillStyle = isXray ? "rgba(15, 23, 42, 0.45)" : "#0c1322";
+        ctx.strokeStyle = isXray ? "#6366f1" : "#1e293b";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(bV[4].x, bV[4].y); ctx.lineTo(bV[5].x, bV[5].y);
+        ctx.lineTo(bV[6].x, bV[6].y); ctx.lineTo(bV[7].x, bV[7].y);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // Stepped side grip indents
+        const gripL1 = project(-w + 4, 0, zBase + 10);
+        const gripR1 = project( w - 4, 0, zBase + 10);
+        ctx.fillStyle = "#030712";
+        ctx.fillRect(gripL1.x - 2, gripL1.y - 25*gripL1.scale, 4*gripL1.scale, 50*gripL1.scale);
+        ctx.fillRect(gripR1.x - 2, gripR1.y - 25*gripR1.scale, 4*gripR1.scale, 50*gripR1.scale);
+      }
+
+      // Rear Connectors (RCA + USB-C)
+      const rPort1 = project(50, d, zBase + 12);
+      const rPort2 = project(70, d, zBase + 12);
+      ctx.fillStyle = "#dc2626"; ctx.beginPath(); ctx.arc(rPort1.x, rPort1.y, 4.5 * rPort1.scale, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#f8fafc"; ctx.beginPath(); ctx.arc(rPort2.x, rPort2.y, 4.5 * rPort2.scale, 0, Math.PI*2); ctx.fill();
+
+      if (currentState !== "stock") {
+        const rUsb = project(92, d, zBase + 12);
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath(); ctx.arc(rUsb.x, rUsb.y, 5.5 * rUsb.scale, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#f59e0b"; ctx.font = "bold 9px monospace";
+        ctx.fillText("12mm USB-C", rUsb.x + 8, rUsb.y + 3);
+      }
+
+      // Front Slot Load Cavity
+      const slotL = project(-52, d - 1, zBase + 18);
+      const slotR = project( 52, d - 1, zBase + 18);
+      ctx.strokeStyle = (currentState === "stock") ? "#0284c7" : "#334155";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(slotL.x, slotL.y); ctx.lineTo(slotR.x, slotR.y); ctx.stroke();
+      if (currentState === "stock" && fidelityMode === "realistic") {
+        ctx.fillStyle = "#38bdf8"; ctx.font = "8px monospace";
+        ctx.fillText("SLOT LOAD CD", slotL.x + 30, slotL.y - 5);
+      }
+
+      // -----------------------------------------------------------
+      // LAYER 2: INTERNAL TRAY (CD SLED vs. RP2350 + CRADLE)
+      // -----------------------------------------------------------
+      if (isExploded || currentState === "blueprint" || isXray) {
+        const mw = 72, md = 82;
+        const mV = [
+          [-mw, -md, zMid], [mw, -md, zMid], [mw, md, zMid], [-mw, md, zMid]
+        ].map(p => project(p[0], p[1], p[2]));
+
+        ctx.fillStyle = (currentState === "stock") 
+          ? "rgba(100, 116, 139, 0.45)"
+          : (isXray ? "rgba(16, 185, 129, 0.35)" : "rgba(16, 185, 129, 0.22)");
+        ctx.strokeStyle = (currentState === "stock") ? "#64748b" : "#10b981";
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(mV[0].x, mV[0].y); ctx.lineTo(mV[1].x, mV[1].y);
+        ctx.lineTo(mV[2].x, mV[2].y); ctx.lineTo(mV[3].x, mV[3].y);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // 4 Silicone Vibration Shock Dampeners (Pioneer Factory Mounts)
+        const dampeners = [
+          [-mw + 8, -md + 8], [mw - 8, -md + 8], [mw - 8, md - 8], [-mw + 8, md - 8]
+        ];
+        dampeners.forEach(pos => {
+          const dp = project(pos[0], pos[1], zMid + 2);
+          ctx.fillStyle = "#38bdf8";
+          ctx.beginPath(); ctx.arc(dp.x, dp.y, 4 * dp.scale, 0, Math.PI*2); ctx.fill();
+        });
+
+        if (currentState !== "stock") {
+          const picoP = project(-22, 10, zMid + 2);
+          ctx.fillStyle = "#a855f7";
+          ctx.fillRect(picoP.x - 12*picoP.scale, picoP.y - 20*picoP.scale, 24*picoP.scale, 40*picoP.scale);
+          ctx.fillStyle = "#ffffff"; ctx.font = "bold 8px monospace";
+          ctx.fillText("RP2350", picoP.x - 12*picoP.scale, picoP.y);
+        }
+
+        const mCenter = project(0, 0, zMid + 2);
+        ctx.fillStyle = "#ffffff"; ctx.font = "11px sans-serif";
+        ctx.fillText(
+          (currentState === "stock") ? "Pioneer CD Sled (Discontinued)" : "3D Printed PETG Cradle & Shock Mounts", 
+          mCenter.x - 90, mCenter.y
+        );
+      }
+
+      // -----------------------------------------------------------
+      // LAYER 3: TOP DECK & PIONEER CDJ-800 PHYSICAL BUTTONS
+      // -----------------------------------------------------------
+      const tV = [
+        [-w, -d, zTop], [w, -d, zTop], [w, d, zTop], [-w, d, zTop]
+      ].map(p => project(p[0], p[1], p[2]));
+
+      if (fidelityMode === "simple") {
+        // Einfach CAD Mode: Blueprint flat styling
+        ctx.fillStyle = isXray ? "rgba(30, 41, 59, 0.3)" : "rgba(15, 23, 42, 0.95)";
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 1.8;
+      } else {
+        // Complex Realistic Mode: Metallic Pioneer gunmetal faceplate
+        ctx.fillStyle = isXray ? "rgba(30, 41, 59, 0.3)" : "#182030";
+        ctx.strokeStyle = "#334155";
+        ctx.lineWidth = 1.5;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(tV[0].x, tV[0].y); ctx.lineTo(tV[1].x, tV[1].y);
+      ctx.lineTo(tV[2].x, tV[2].y); ctx.lineTo(tV[3].x, tV[3].y);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      // Pioneer DJ Header Brand Text
+      if (fidelityMode === "realistic") {
+        const logoP = project(-95, -125, zTop + 1);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "bold 9px sans-serif";
+        ctx.fillText("Pioneer", logoP.x, logoP.y);
+        ctx.font = "7px sans-serif";
+        ctx.fillText("Compact Disc Player CDJ-800", logoP.x, logoP.y + 10);
+      }
+
+      const jogZ = zTop + 2;
+
+      // -----------------------------------------------------------
+      // PIONEER 206mm OPTICAL JOG WHEEL REPLICA
+      // -----------------------------------------------------------
+      const jogCenter2D = project(deckButtons.jog.pos[0], deckButtons.jog.pos[1], jogZ);
+
+      // Outer Knurled Ring (206mm outer bezel)
+      ctx.beginPath();
+      ctx.strokeStyle = (fidelityMode === "simple") ? "#38bdf8" : "#334155";
+      ctx.lineWidth = 2.5;
+      for (let a = 0; a <= Math.PI * 2; a += 0.15) {
+        const jx = Math.cos(a) * 72;
+        const jy = 35 + Math.sin(a) * 72;
+        const p = project(jx, jy, jogZ);
+        if (a === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = (fidelityMode === "simple") ? "rgba(56, 189, 248, 0.15)" : "#090d16";
+      ctx.fill(); ctx.stroke();
+
+      // Realistic Knurled Grip Teeth (Complex mode only)
+      if (fidelityMode === "realistic") {
+        ctx.fillStyle = "#475569";
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 18) {
+          const jx = Math.cos(a) * 70;
+          const jy = 35 + Math.sin(a) * 70;
+          const kp = project(jx, jy, jogZ + 1);
+          ctx.beginPath(); ctx.arc(kp.x, kp.y, 1.8 * kp.scale, 0, Math.PI*2); ctx.fill();
+        }
+      }
+
+      // Inner Platter (140mm brushed vinyl plate)
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2; a += 0.2) {
+        const jx = Math.cos(a) * 44;
+        const jy = 35 + Math.sin(a) * 44;
+        const p = project(jx, jy, jogZ + 2);
+        if (a === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = (fidelityMode === "simple") ? "rgba(16, 185, 129, 0.25)" : "#131a2a";
+      ctx.strokeStyle = isVinylMode ? "#06b6d4" : "#475569";
+      ctx.lineWidth = isVinylMode ? 2 : 1.5;
+      ctx.fill(); ctx.stroke();
+
+      // Center Display Disc (65mm circular display with spinning cue marker)
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2; a += 0.25) {
+        const jx = Math.cos(a) * 22;
+        const jy = 35 + Math.sin(a) * 22;
+        const p = project(jx, jy, jogZ + 3);
+        if (a === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "#030712";
+      ctx.strokeStyle = isPlaying ? "#10b981" : "#ef4444";
+      ctx.lineWidth = 1.5;
+      ctx.fill(); ctx.stroke();
+
+      // Spinning Vinyl Position Marker
+      const markX = Math.cos(jogRotationAngle) * 16;
+      const markY = 35 + Math.sin(jogRotationAngle) * 16;
+      const markerP = project(markX, markY, jogZ + 4);
+      ctx.fillStyle = isPlaying ? "#10b981" : "#ef4444";
+      ctx.beginPath(); ctx.arc(markerP.x, markerP.y, 3 * markerP.scale, 0, Math.PI * 2); ctx.fill();
+
+      // Center Vinyl Icon
+      if (fidelityMode === "realistic") {
+        ctx.fillStyle = isVinylMode ? "#06b6d4" : "#64748b";
+        ctx.font = "bold 7px sans-serif";
+        ctx.fillText("VINYL", jogCenter2D.x - 11, jogCenter2D.y + 3);
+      }
+
+      // -----------------------------------------------------------
+      // PHYSICAL TACTILE BUTTON RENDERING
+      // -----------------------------------------------------------
+
+      // Helper function to draw circular buttons with glowing LED halos
+      function drawTactileButton(btn, activeColor, isPressed, label) {
+        const p = project(btn.pos[0], btn.pos[1], jogZ + (isPressed ? 0.5 : 1.5));
+        const r = btn.radius * p.scale;
+
+        // Halo Glow
+        if (isPressed || activeSelectedButton.id === btn.id) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r + 4 * p.scale, 0, Math.PI*2);
+          ctx.fillStyle = activeColor.replace(")", ", 0.25)").replace("rgb", "rgba").replace("#", "rgba(");
+          ctx.fill();
+        }
+
+        // Button Surface
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+        ctx.fillStyle = isPressed ? activeColor : (fidelityMode === "simple" ? "rgba(30, 41, 59, 0.9)" : "#1e293b");
+        ctx.strokeStyle = (activeSelectedButton.id === btn.id) ? "#ffffff" : activeColor;
+        ctx.lineWidth = (activeSelectedButton.id === btn.id) ? 2.5 : 1.5;
+        ctx.fill(); ctx.stroke();
+
+        // Label
+        if (fidelityMode === "realistic") {
+          ctx.fillStyle = isPressed ? "#030712" : "#ffffff";
+          ctx.font = "bold " + Math.max(7, Math.round(7 * p.scale)) + "px sans-serif";
+          ctx.fillText(label, p.x - (label.length * 2.5 * p.scale), p.y + (3 * p.scale));
+        } else {
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 8px monospace";
+          ctx.fillText(btn.id.toUpperCase().slice(0, 4), p.x - 10, p.y + 3);
+        }
+      }
+
+      // Play Button (Large Round Green)
+      drawTactileButton(deckButtons.play, "#10b981", isPlaying, "►/||");
+
+      // Cue Button (Large Round Amber)
+      drawTactileButton(deckButtons.cue, "#f59e0b", isCuePressed, "CUE");
+
+      // Reverse Toggle
+      drawTactileButton(deckButtons.reverse, "#ef4444", isReverse, "REV");
+
+      // Track Search |<< and >>|
+      drawTactileButton(deckButtons.track_prev, "#38bdf8", false, "|<<");
+      drawTactileButton(deckButtons.track_next, "#38bdf8", false, ">>|");
+
+      // Loop In, Loop Out, Reloop
+      drawTactileButton(deckButtons.loop_in, "#f59e0b", activeLoop !== null, "IN");
+      drawTactileButton(deckButtons.loop_out, "#f59e0b", activeLoop !== null, "OUT");
+      drawTactileButton(deckButtons.reloop, "#f59e0b", activeLoop !== null, "RELOOP");
+
+      // Vinyl Mode Button
+      drawTactileButton(deckButtons.vinyl, "#06b6d4", isVinylMode, "VINYL");
+
+      // Master Tempo Button
+      drawTactileButton(deckButtons.master_tempo, "#a855f7", isMasterTempo, "MT");
+
+      // Tempo Range Button
+      drawTactileButton(deckButtons.pitch_range, "#38bdf8", false, "±" + pitchRanges[pitchRangeIndex] + "%");
+
+      // Eject Button (Top Left)
+      drawTactileButton(deckButtons.eject, "#ef4444", false, "⏏");
+
+      // -----------------------------------------------------------
+      // 100mm TEMPO / PITCH SLIDER
+      // -----------------------------------------------------------
+      const faderTop = project(deckButtons.pitch.pos[0], 65, jogZ + 1);
+      const faderBot = project(deckButtons.pitch.pos[0], 130, jogZ + 1);
+      const faderY = 97.5 + (pitchVal / 100) * 32.5;
+      const faderKnob = project(deckButtons.pitch.pos[0], faderY, jogZ + 3.5);
+
+      // Track Groove
+      ctx.strokeStyle = (fidelityMode === "simple") ? "#38bdf8" : "#475569";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(faderTop.x, faderTop.y); ctx.lineTo(faderBot.x, faderBot.y); ctx.stroke();
+
+      // Center 0.00% Zero-Detent Green LED
+      const faderCenterP = project(deckButtons.pitch.pos[0] - 8, 97.5, jogZ + 2);
+      ctx.fillStyle = (Math.abs(pitchVal) < 1.0) ? "#10b981" : "#334155";
+      ctx.beginPath(); ctx.arc(faderCenterP.x, faderCenterP.y, 3 * faderCenterP.scale, 0, Math.PI*2); ctx.fill();
+
+      // Slider Knob Cap
+      ctx.fillStyle = (activeSelectedButton.id === "pitch") ? "#38bdf8" : "#f8fafc";
+      ctx.fillRect(faderKnob.x - (8 * faderKnob.scale), faderKnob.y - (4 * faderKnob.scale), 16 * faderKnob.scale, 8 * faderKnob.scale);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(faderKnob.x - (8 * faderKnob.scale), faderKnob.y - (4 * faderKnob.scale), 16 * faderKnob.scale, 8 * faderKnob.scale);
+
+      // -----------------------------------------------------------
+      // DISPLAY: STOCK VFD vs. RETINA TOUCH MEDIA DECK
+      // -----------------------------------------------------------
+      if (currentState === "stock") {
+        // Stock Curved VFD
+        const vfdC = project(0, -90, jogZ + 1);
+        ctx.fillStyle = "#050b14"; ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let a = -Math.PI * 0.8; a <= -Math.PI * 0.2; a += 0.1) {
+          const vx = Math.cos(a) * 56;
+          const vy = -70 + Math.sin(a) * 36;
+          const p = project(vx, vy, jogZ + 1);
+          if (a === -Math.PI * 0.8) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = "#38bdf8"; ctx.font = "bold 10px monospace";
+        ctx.fillText("TRACK 01   02:14.35", vfdC.x - 55, vfdC.y - 12);
+        ctx.font = "8px monospace";
+        ctx.fillText("PITCH " + ((pitchVal > 0 ? "+" : "") + pitchVal.toFixed(1)) + "%   126.0 BPM", vfdC.x - 65, vfdC.y + 6);
+
+      } else {
+        // TARGET MEDIA DECK: iPod Touch (4.0" Drop-in) vs. iPad Mini (8.3" Wide)
+        const isIpod = (targetDevice === "ipod");
+        const ipw = isIpod ? 48 : 68;
+        const ipd = isIpod ? 24 : 45;
+        const ipCenterY = isIpod ? -85 : -90;
+
+        // If in iPod mode, also render the original curved Pioneer window boundary
+        if (isIpod && fidelityMode === "realistic") {
+          const vfdC = project(0, -90, jogZ + 1);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (let a = -Math.PI * 0.8; a <= -Math.PI * 0.2; a += 0.1) {
+            const vx = Math.cos(a) * 58;
+            const vy = -68 + Math.sin(a) * 36;
+            const p = project(vx, vy, jogZ + 1);
+            if (a === -Math.PI * 0.8) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+          ctx.fillStyle = "rgba(56, 189, 248, 0.04)";
+          ctx.fill();
+        }
+
+        const ip1 = project(-ipw, ipCenterY - ipd, jogZ + 2);
+        const ip2 = project( ipw, ipCenterY - ipd, jogZ + 2);
+        const ip3 = project( ipw, ipCenterY + ipd, jogZ + 2);
+        const ip4 = project(-ipw, ipCenterY + ipd, jogZ + 2);
+
+        // Precision Bezel / Cradle Mount
+        ctx.fillStyle = (fidelityMode === "simple") ? "rgba(6, 182, 212, 0.2)" : (isIpod ? "#0f172a" : "#1e293b");
+        ctx.strokeStyle = isIpod ? "#f59e0b" : "#06b6d4";
+        ctx.lineWidth = (activeSelectedButton.id === "screen") ? 2.8 : 2;
+        ctx.beginPath();
+        ctx.moveTo(ip1.x, ip1.y); ctx.lineTo(ip2.x, ip2.y);
+        ctx.lineTo(ip3.x, ip3.y); ctx.lineTo(ip4.x, ip4.y);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // Inner Glass
+        const scW = isIpod ? 43 : 62;
+        const scD = isIpod ? 20 : 40;
+        const s1 = project(-scW, ipCenterY - scD, jogZ + 3);
+        const s2 = project( scW, ipCenterY - scD, jogZ + 3);
+        const s3 = project( scW, ipCenterY + scD, jogZ + 3);
+        const s4 = project(-scW, ipCenterY + scD, jogZ + 3);
+
+        ctx.fillStyle = "#020617";
+        ctx.beginPath();
+        ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y);
+        ctx.lineTo(s3.x, s3.y); ctx.lineTo(s4.x, s4.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Algoriddim djay 60 FPS Waveform UI
+        const scCenter = project(0, ipCenterY, jogZ + 4);
+        
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = isIpod ? "bold 7px sans-serif" : "bold 8px sans-serif";
+        ctx.fillText(
+          isIpod ? "Daft Punk" : "Daft Punk - One More Time", 
+          scCenter.x - ((isIpod ? 20 : 38) * scCenter.scale), 
+          scCenter.y - ((isIpod ? 10 : 22) * scCenter.scale)
+        );
+
+        ctx.lineWidth = isIpod ? 1.4 : 1.8;
+        const waveW = (isIpod ? 28 : 42) * scCenter.scale;
+        
+        // Multi-Band Bass Layer (Orange)
+        ctx.strokeStyle = "#f97316";
+        ctx.beginPath();
+        for (let wx = -waveW; wx <= waveW; wx += 3) {
+          const wy = Math.sin((wx + (isReverse ? -waveformOffset : waveformOffset)) * 0.22) * ((isIpod ? 5 : 10) * scCenter.scale);
+          if (wx === -waveW) ctx.moveTo(scCenter.x + wx, scCenter.y + wy);
+          else ctx.lineTo(scCenter.x + wx, scCenter.y + wy);
+        }
+        ctx.stroke();
+
+        // Multi-Band Highs Layer (Cyan)
+        ctx.strokeStyle = "#06b6d4";
+        ctx.beginPath();
+        for (let wx = -waveW; wx <= waveW; wx += 3) {
+          const wy = Math.cos((wx + (isReverse ? -waveformOffset : waveformOffset)) * 0.35) * ((isIpod ? 3 : 6) * scCenter.scale);
+          if (wx === -waveW) ctx.moveTo(scCenter.x + wx, scCenter.y + wy);
+          else ctx.lineTo(scCenter.x + wx, scCenter.y + wy);
+        }
+        ctx.stroke();
+
+        // Playhead Red Axis
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(scCenter.x, scCenter.y - ((isIpod ? 8 : 14) * scCenter.scale));
+        ctx.lineTo(scCenter.x, scCenter.y + ((isIpod ? 8 : 14) * scCenter.scale));
+        ctx.stroke();
+
+        const maxRange = pitchRanges[pitchRangeIndex];
+        const currentBpm = (126.0 * (1.0 + (pitchVal / 100) * (maxRange / 100))).toFixed(1);
+        ctx.fillStyle = "#10b981";
+        ctx.font = isIpod ? "bold 7px monospace" : "bold 9px monospace";
+        ctx.fillText(currentBpm + " BPM", scCenter.x - ((isIpod ? 22 : 36) * scCenter.scale), scCenter.y + ((isIpod ? 12 : 26) * scCenter.scale));
+
+        if (currentState === "blueprint" || fidelityMode === "simple") {
+          ctx.fillStyle = isIpod ? "#f59e0b" : "#10b981";
+          ctx.font = "bold 8px monospace";
+          const labelText = isIpod ? "iPOD TOUCH: 123.4 × 58.6mm (0mm CUT)" : "iPAD MINI: 195.4 × 134.8mm (BEZEL TRIM)";
+          ctx.fillText(labelText, scCenter.x - (labelText.length * 2.3), scCenter.y);
+        }
+      }
+    }
+
+    // Hit Testing for 3D Buttons
+    function findClickedControl(screenX, screenY) {
+      const jogZ = 40 + (isExploded ? (explodeAmount * 70 * 1.2) : 0) + 2;
+      for (const key in deckButtons) {
+        const btn = deckButtons[key];
+        const p = project(btn.pos[0], btn.pos[1], jogZ);
+        const r = btn.radius * p.scale;
+        const dx = screenX - p.x;
+        const dy = screenY - p.y;
+        if (Math.sqrt(dx*dx + dy*dy) <= Math.max(r, 12)) {
+          return btn;
+        }
+      }
+      return null;
+    }
+
+    // Animation Loop
+    let isAnimationRunning = false;
+    function requestRender() {
+      if (!isAnimationRunning) {
+        isAnimationRunning = true;
+        requestAnimationFrame(renderFrame);
+      }
+    }
+
+    function renderFrame() {
+      let keepRunning = false;
+
+      if (isPlaying) {
+        const maxRange = pitchRanges[pitchRangeIndex];
+        const speed = (1.0 + (pitchVal / 100) * (maxRange / 100));
+        const dir = isReverse ? -1 : 1;
+        waveformOffset += 1.6 * speed * dir;
+        jogRotationAngle += 0.035 * speed * dir;
+        audioTick();
+        keepRunning = true;
+      }
+
+      if (!isDraggingJog && Math.abs(jogVelocity) > 0.0005) {
+        jogRotationAngle += jogVelocity;
+        waveformOffset += jogVelocity * 40;
+        jogVelocity *= 0.92;
+        keepRunning = true;
+      }
+
+      draw();
+
+      if (keepRunning) {
+        requestAnimationFrame(renderFrame);
+      } else {
+        isAnimationRunning = false;
+      }
+    }
+
+    // Pointer Interaction (Scratching, Button Clicks, 3D Rotation)
+    let isDragging = false;
+    let isDraggingJog = false;
+    let isDraggingPitch = false;
+    let lastX = 0, lastY = 0;
+
+    canvas.addEventListener("pointerdown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      const hitBtn = findClickedControl(mouseX, mouseY);
+      if (hitBtn) {
+        selectButton(hitBtn.id);
+        triggerButtonAction(hitBtn.id);
+        if (hitBtn.id === "jog") {
+          isDraggingJog = true;
+        } else if (hitBtn.id === "pitch") {
+          isDraggingPitch = true;
+        }
+      } else {
+        isDragging = true;
+      }
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Tooltip preview
+      const hitBtn = findClickedControl(mouseX, mouseY);
+      const tip = document.getElementById("canvasTooltip");
+      if (hitBtn && !isDragging) {
+        tip.innerText = hitBtn.label + " (" + hitBtn.pioneerPin.replace("&bull;", "•") + ")";
+        tip.style.left = (mouseX + 15) + "px";
+        tip.style.top = (mouseY + 15) + "px";
+        tip.classList.remove("hidden");
+        canvas.style.cursor = "pointer";
+      } else {
+        tip.classList.add("hidden");
+        canvas.style.cursor = isDragging ? "grabbing" : "crosshair";
+      }
+
+      if (!isDragging && !isDraggingJog && !isDraggingPitch) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      if (isDraggingJog) {
+        const deltaAngle = (dx + dy) * 0.015;
+        jogRotationAngle += deltaAngle;
+        jogVelocity = deltaAngle;
+        waveformOffset += deltaAngle * 45;
+        requestRender();
+      } else if (isDraggingPitch) {
+        pitchVal = Math.max(-100, Math.min(100, pitchVal + (dy * 0.8)));
+        document.getElementById("simPitchSlider").value = pitchVal;
+        updateBpmReadout();
+        requestRender();
+      } else if (isDragging) {
+        rotY += dx * 0.009;
+        rotX += dy * 0.009;
+        rotX = Math.max(-1.45, Math.min(0.25, rotX));
+        requestRender();
+      }
+    });
+
+    canvas.addEventListener("pointerup", () => {
+      isDragging = false;
+      isDraggingJog = false;
+      isDraggingPitch = false;
+      requestRender();
+    });
+    canvas.addEventListener("pointercancel", () => {
+      isDragging = false;
+      isDraggingJog = false;
+      isDraggingPitch = false;
+    });
+
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      zoom = Math.max(0.65, Math.min(2.4, zoom));
+      requestRender();
+    }, { passive: false });
+
+    // UI Wireups
+    document.getElementById("simPlayBtn").addEventListener("click", () => triggerButtonAction("play"));
+    document.getElementById("simCueBtn").addEventListener("mousedown", () => triggerButtonAction("cue"));
+    document.getElementById("simReverseBtn").addEventListener("click", () => triggerButtonAction("reverse"));
+    document.getElementById("simVinylBtn").addEventListener("click", () => triggerButtonAction("vinyl"));
+    document.getElementById("simMasterTempoBtn").addEventListener("click", () => triggerButtonAction("master_tempo"));
+    document.getElementById("simTempoRangeBtn").addEventListener("click", () => triggerButtonAction("pitch_range"));
+
+    document.getElementById("simPitchSlider").addEventListener("input", (e) => {
+      pitchVal = parseFloat(e.target.value);
+      updateBpmReadout();
+      requestRender();
+    });
+
+    document.getElementById("simAudioToggle").addEventListener("click", () => {
+      initAudio();
+      isAudioEnabled = !isAudioEnabled;
+      const audioStateText = document.getElementById("audioStateText");
+      if (isAudioEnabled) {
+        audioStateText.innerText = "Active";
+        audioStateText.style.color = "var(--emerald)";
+        if (audioCtx) nextBeatTime = audioCtx.currentTime;
+      } else {
+        audioStateText.innerText = "Muted";
+        audioStateText.style.color = "var(--text-muted)";
+      }
+    });
+
+    // Fidelity Toggles: Einfach vs Complex
+    const btnFidelitySimple = document.getElementById("btnFidelitySimple");
+    const btnFidelityRealistic = document.getElementById("btnFidelityRealistic");
+
+    btnFidelitySimple.addEventListener("click", () => {
+      fidelityMode = "simple";
+      btnFidelitySimple.className = "btn btn-active-cyan";
+      btnFidelityRealistic.className = "btn";
+      btnFidelityRealistic.style.background = "transparent";
+      document.getElementById("canvasStatusText").innerText = "Einfach CAD Mode: Blueprint Schematic & Dimension Callouts";
+      requestRender();
+    });
+
+    btnFidelityRealistic.addEventListener("click", () => {
+      fidelityMode = "realistic";
+      btnFidelityRealistic.className = "btn btn-active-cyan";
+      btnFidelitySimple.className = "btn";
+      btnFidelitySimple.style.background = "transparent";
+      document.getElementById("canvasStatusText").innerText = "Complex Studio Mode: Photorealistic Pioneer Hardware Finishes";
+      requestRender();
+    });
+
+    // Lifecycle States
+    const btnStock = document.getElementById("btnStateStock");
+    const btnBlueprint = document.getElementById("btnStateBlueprint");
+    const btnMod = document.getElementById("btnStateMod");
+
+    function setActiveState(state) {
+      currentState = state;
+      [btnStock, btnBlueprint, btnMod].forEach(b => {
+        b.className = "btn";
+        b.style.background = "transparent";
+      });
+      if (state === "stock") {
+        btnStock.className = "btn btn-active-cyan";
+      } else if (state === "blueprint") {
+        btnBlueprint.className = "btn btn-active-cyan";
+      } else {
+        btnMod.className = "btn btn-active-emerald";
+      }
+      requestRender();
+    }
+
+    btnStock.addEventListener("click", () => setActiveState("stock"));
+    btnBlueprint.addEventListener("click", () => setActiveState("blueprint"));
+    btnMod.addEventListener("click", () => setActiveState("mod"));
+
+    // X-Ray
+    const btnXray = document.getElementById("btnXrayToggle");
+    btnXray.addEventListener("click", () => {
+      isXray = !isXray;
+      btnXray.style.background = isXray ? "rgba(168,85,247,0.3)" : "rgba(30,41,59,0.75)";
+      document.getElementById("xrayLabel").innerText = isXray ? "X-Ray: ON" : "X-Ray: OFF";
+      requestRender();
+    });
+
+    // Explode
+    const btnExplode = document.getElementById("btnExplodeToggle");
+    const explodeSliderContainer = document.getElementById("explodeSliderContainer");
+    const explodeSlider = document.getElementById("explodeSlider");
+    const explodeVal = document.getElementById("explodeVal");
+
+    btnExplode.addEventListener("click", () => {
+      isExploded = !isExploded;
+      btnExplode.style.background = isExploded ? "rgba(6,182,212,0.3)" : "rgba(30,41,59,0.75)";
+      explodeSliderContainer.classList.toggle("hidden", !isExploded);
+      document.getElementById("explodeLabel").innerText = isExploded ? "Collapse" : "Explode Layers";
+      requestRender();
+    });
+
+    explodeSlider.addEventListener("input", (e) => {
+      explodeAmount = parseInt(e.target.value) / 100;
+      explodeVal.innerText = e.target.value + "%";
+      requestRender();
+    });
+
+    // Camera Presets
+    document.getElementById("camIso").addEventListener("click", () => {
+      rotX = -0.52; rotY = 0.65; zoom = 1.05; requestRender();
+    });
+    document.getElementById("camTop").addEventListener("click", () => {
+      rotX = -1.55; rotY = 0.0; zoom = 1.15; requestRender();
+    });
+    document.getElementById("camRear").addEventListener("click", () => {
+      rotX = -0.05; rotY = 3.14; zoom = 1.15; requestRender();
+    });
+    document.getElementById("camSide").addEventListener("click", () => {
+      rotX = -0.15; rotY = 1.57; zoom = 1.15; requestRender();
+    });
+    document.getElementById("camReset").addEventListener("click", () => {
+      rotX = -0.52; rotY = 0.65; zoom = 1.05; requestRender();
+    });
+
+    // Tabs
+    const tabBtns = [
+      document.getElementById("tabBtn1"),
+      document.getElementById("tabBtn2"),
+      document.getElementById("tabBtn3"),
+      document.getElementById("tabBtn4"),
+      document.getElementById("tabBtn5"),
+      document.getElementById("tabBtn6")
+    ];
+    const tabContents = [
+      document.getElementById("tabContent1"),
+      document.getElementById("tabContent2"),
+      document.getElementById("tabContent3"),
+      document.getElementById("tabContent4"),
+      document.getElementById("tabContent5"),
+      document.getElementById("tabContent6")
+    ];
+
+    function switchTab(idx) {
+      tabBtns.forEach((btn, i) => {
+        btn.className = (i === idx) ? "btn btn-active-cyan" : "btn";
+      });
+      tabContents.forEach((c, i) => {
+        c.classList.toggle("hidden", i !== idx);
+      });
+    }
+
+    tabBtns.forEach((btn, idx) => {
+      btn.addEventListener("click", () => switchTab(idx));
+    });
+
+    // Device Switcher Event Listeners
+    const btnDeviceIpod = document.getElementById("btnDeviceIpod");
+    const btnDeviceIpad = document.getElementById("btnDeviceIpad");
+
+    function setTargetDevice(dev) {
+      targetDevice = dev;
+      if (dev === "ipod") {
+        btnDeviceIpod.className = "btn btn-active-amber";
+        btnDeviceIpad.className = "btn";
+        btnDeviceIpad.style.background = "transparent";
+        deckButtons.screen.label = "iPod Touch 7th Gen (4.0-inch Display)";
+        deckButtons.screen.sub = "Drop-in Factory Window Replacement (0mm Cut)";
+        deckButtons.screen.pos = [0, -85, 42];
+        deckButtons.screen.desc = "123.4 × 58.6 mm form factor slides directly behind the original Pioneer curved display glass without any plastic trimming. Runs Algoriddim djay with native CDJ-850 HID support.";
+        document.getElementById("canvasStatusText").innerText = "Production Deck: iPod Touch 4.0-inch Drop-in (0mm Faceplate Cutting)";
+      } else {
+        btnDeviceIpad.className = "btn btn-active-cyan";
+        btnDeviceIpod.className = "btn";
+        btnDeviceIpod.style.background = "transparent";
+        deckButtons.screen.label = "iPad Mini 6 (8.3-inch Liquid Retina)";
+        deckButtons.screen.sub = "Flagship Widescreen Conversion (CDJ-3000 Style)";
+        deckButtons.screen.pos = [0, -90, 42];
+        deckButtons.screen.desc = "195.4 × 134.8 mm widescreen flagship conversion. Provides massive scrolling multi-band waveforms and track search with touch navigation.";
+        document.getElementById("canvasStatusText").innerText = "Production Deck: iPad Mini 8.3-inch Liquid Retina (Expanded Bezel)";
+      }
+      if (activeSelectedButton.id === "screen") {
+        selectButton("screen");
+      }
+      requestRender();
+    }
+
+    btnDeviceIpod.addEventListener("click", () => setTargetDevice("ipod"));
+    btnDeviceIpad.addEventListener("click", () => setTargetDevice("ipad"));
+
+    // Init
+
+    // =========================================================================
+    // INTERACTIVE NEURAL SYNAPTIC WIRING ENGINE (CDJ-800 -> PICO 2 -> CDJ-850)
+    // =========================================================================
+    const neuralCanvas = document.getElementById("neuralCanvas");
+    const nCtx = neuralCanvas.getContext("2d");
+
+    let nWidth = 1000, nHeight = 560;
+    let nActiveFilter = "all";
+    let nHoveredNode = null;
+    let nHoveredWire = null;
+    let nImpulseWave = 0;
+
+    // Define Neural Nodes across 3 Synaptic Layers
+    // Layer 1: Pioneer Hardware (Left)
+    // Layer 2: Pico 2 RP2350 Synapse (Center)
+    // Layer 3: Host & Audio (Right)
+    const neuralNodes = [
+      // Left Column: Pioneer CDJ-800 Controls
+      { id: "p_play", layer: 0, label: "PLAY / PAUSE", sub: "Tactile Switch", color: "#10b981", yPct: 0.10, filter: "matrix" },
+      { id: "p_cue", layer: 0, label: "CUE POINT", sub: "Tactile Switch", color: "#f59e0b", yPct: 0.22, filter: "matrix" },
+      { id: "p_jog", layer: 0, label: "OPTICAL JOG", sub: "Phase A/B Quadrature", color: "#38bdf8", yPct: 0.35, filter: "jog" },
+      { id: "p_touch", layer: 0, label: "PLATTER TOUCH", sub: "Vinyl Pressure Switch", color: "#06b6d4", yPct: 0.47, filter: "jog" },
+      { id: "p_pitch", layer: 0, label: "PITCH SLIDER", sub: "10kΩ ALPS 100mm", color: "#a855f7", yPct: 0.60, filter: "pitch" },
+      { id: "p_loop", layer: 0, label: "LOOP ENGINE", sub: "In / Out / Reloop", color: "#f59e0b", yPct: 0.72, filter: "matrix" },
+      { id: "p_leds", layer: 0, label: "STATUS LEDS", sub: "Cue/Play Rings", color: "#ec4899", yPct: 0.84, filter: "led" },
+      { id: "p_power", layer: 0, label: "REAR USB-C", sub: "12mm Panel Mount", color: "#ef4444", yPct: 0.94, filter: "audio_power" },
+
+      // Center Column: Raspberry Pi Pico 2 (RP2350)
+      { id: "c_matrix", layer: 1, label: "GP2-9 MATRIX", sub: "4 Rows × 4 Cols Strobe", color: "#10b981", yPct: 0.16, filter: "matrix" },
+      { id: "c_pio", layer: 1, label: "GP10-11 PIO", sub: "PIO0 SM0 Quadrature", color: "#38bdf8", yPct: 0.35, filter: "jog" },
+      { id: "c_touch", layer: 1, label: "GP12 TOUCH", sub: "Digital Pull-up Input", color: "#06b6d4", yPct: 0.47, filter: "jog" },
+      { id: "c_adc", layer: 1, label: "GP26 / ADC0", sub: "12-bit ADC Wiper", color: "#a855f7", yPct: 0.60, filter: "pitch" },
+      { id: "c_led_drv", layer: 1, label: "GP14-17 LEDS", sub: "Open-Drain Sinks", color: "#ec4899", yPct: 0.74, filter: "led" },
+      { id: "c_usb_stack", layer: 1, label: "TINYUSB HID", sub: "Dual ARM Cortex-M33", color: "#06b6d4", yPct: 0.86, filter: "all" },
+      { id: "c_power", layer: 1, label: "3V3 & VSYS", sub: "Regulated Rails", color: "#ef4444", yPct: 0.94, filter: "audio_power" },
+
+      // Right Column: Host & Audio Cortex
+      { id: "r_hid_in", layer: 2, label: "REPORT 0x01", sub: "64-Byte 1,000Hz HID", color: "#10b981", yPct: 0.20, filter: "matrix" },
+      { id: "r_jog_hid", layer: 2, label: "JOG DELTA", sub: "Byte 0x04 Signed Tick", color: "#38bdf8", yPct: 0.35, filter: "jog" },
+      { id: "r_fader_hid", layer: 2, label: "PITCH BYTES", sub: "Bytes 0x06-07 (10-bit)", color: "#a855f7", yPct: 0.55, filter: "pitch" },
+      { id: "r_djay", layer: 2, label: "ALGORIDDIM DJAY", sub: "Single-Deck 60 FPS", color: "#06b6d4", yPct: 0.70, filter: "all" },
+      { id: "r_rca", layer: 2, label: "REAR RCA OUT", sub: "24-Bit / 48kHz Stereo", color: "#3b82f6", yPct: 0.84, filter: "audio_power" },
+      { id: "r_charger", layer: 2, label: "USB-PD 5V", sub: "Screen Host Charging", color: "#ef4444", yPct: 0.94, filter: "audio_power" }
+    ];
+
+    // Neural Axonal Connections (Wires)
+    const neuralWires = [
+      // Matrix Connections
+      { from: "p_play", to: "c_matrix", color: "#10b981", filter: "matrix", label: "FFC Pin 1/5 (Row 0, Col 0)", voltage: "3.3V Logic &bull; 1ms Debounce", origin: "Play Switch (PNLB)", bridge: "Pico GP2/6", target: "Report 0x01 Bit 0" },
+      { from: "p_cue", to: "c_matrix", color: "#f59e0b", filter: "matrix", label: "FFC Pin 1/6 (Row 0, Col 1)", voltage: "3.3V Logic &bull; 1ms Debounce", origin: "Cue Switch (PNLB)", bridge: "Pico GP2/7", target: "Report 0x01 Bit 1" },
+      { from: "p_loop", to: "c_matrix", color: "#f59e0b", filter: "matrix", label: "FFC Pin 4/7 (Row 3, Col 2)", voltage: "3.3V Matrix Strobe", origin: "Loop In/Out (SWPB)", bridge: "Pico GP5/8", target: "Report 0x01 Byte 0x08" },
+      { from: "c_matrix", to: "r_hid_in", color: "#10b981", filter: "matrix", label: "USB Transport Bitmask", voltage: "1,000 Hz HID Polling", origin: "Pico Matrix Buffer", bridge: "TinyUSB HID Engine", target: "Algoriddim djay Deck 1" },
+
+      // Jog Connections
+      { from: "p_jog", to: "c_pio", color: "#38bdf8", filter: "jog", label: "FFC Pin 9/10 (Quadrature A/B)", voltage: "3.3V Pulses &bull; 1,000 Hz", origin: "Optical Photo-Interrupters", bridge: "Pico GP10/11 (PIO0 SM0)", target: "Report 0x01 Byte 0x04" },
+      { from: "p_touch", to: "c_touch", color: "#06b6d4", filter: "jog", label: "FFC Pin 11 (Platter Switch)", voltage: "Active-Low Contact", origin: "Vinyl Platter Switch", bridge: "Pico GP12 (Pull-up)", target: "Report 0x01 Byte 0x05" },
+      { from: "c_pio", to: "r_jog_hid", color: "#38bdf8", filter: "jog", label: "Signed Tick Displacement", voltage: "1,000 Hz Full-Speed USB", origin: "PIO0 Counter Register", bridge: "TinyUSB Endpoint 1", target: "djay Platter Scratch" },
+      { from: "c_touch", to: "r_jog_hid", color: "#06b6d4", filter: "jog", label: "Vinyl Touch State Byte", voltage: "1,000 Hz Full-Speed USB", origin: "GP12 State Register", bridge: "TinyUSB Endpoint 1", target: "djay Vinyl Mode Stop" },
+
+      // Pitch Connections
+      { from: "p_pitch", to: "c_adc", color: "#a855f7", filter: "pitch", label: "FFC Pin 12 (0-3.3V Wiper)", voltage: "0.0V to 3.3V Analog", origin: "10kΩ ALPS Slider", bridge: "Pico GP26 (ADC0)", target: "Report 0x01 Bytes 6-7" },
+      { from: "c_adc", to: "r_fader_hid", color: "#a855f7", filter: "pitch", label: "10-bit Tempo Word", voltage: "10-bit Resolution (0-1023)", origin: "Pico 12-bit ADC", bridge: "TinyUSB HID Struct", target: "djay Tempo Multiplier" },
+
+      // LED Feedback Connections
+      { from: "p_leds", to: "c_led_drv", color: "#ec4899", filter: "led", label: "FFC Pin 13-16 (Cathodes)", voltage: "Active-Low Sinks", origin: "Play/Cue Ring LEDs", bridge: "Pico GP14-17 via 220Ω", target: "Output Report 0x00" },
+      { from: "c_led_drv", to: "r_djay", color: "#ec4899", filter: "led", label: "Host Output Report 0x00", voltage: "Host Status Feedback", origin: "djay Play/Cue State", bridge: "TinyUSB Out Endpoint", target: "Physical Deck LED Halos" },
+
+      // Audio & Power Connections
+      { from: "p_power", to: "c_power", color: "#ef4444", filter: "audio_power", label: "5V USB-PD VBUS Line", voltage: "5.0V @ 3.0A DC", origin: "Rear 12mm USB-C Port", bridge: "Pico Pin 40 (VBUS)", target: "Internal 3.3V LDO Rail" },
+      { from: "c_power", to: "r_charger", color: "#ef4444", filter: "audio_power", label: "Isolated 5V Host Charge", voltage: "5.0V / 2.4A Isolated", origin: "5V Step-Down Hub", bridge: "USB-PD Splitter", target: "iPod / iPad Battery" },
+      { from: "c_usb_stack", to: "r_djay", color: "#06b6d4", filter: "all", label: "Pioneer CDJ-850 USB Bus", voltage: "USB 2.0 Full-Speed 12Mbps", origin: "RP2350 USB Controller", bridge: "VID 0x08E4, PID 0x0159", target: "Algoriddim djay Single Deck" },
+      { from: "r_djay", to: "r_rca", color: "#3b82f6", filter: "audio_power", label: "Line-Level Stereo Audio", voltage: "2.0 Vrms Line Out", origin: "Apple CoreAudio Engine", bridge: "Lightning/USB DAC", target: "Rear Gold-Plated RCA" }
+    ];
+
+    // Initialize Particles along each wire
+    const neuralParticles = [];
+    neuralWires.forEach((w, idx) => {
+      const count = (w.filter === "jog" || w.filter === "all") ? 3 : 2;
+      for (let i = 0; i < count; i++) {
+        neuralParticles.push({
+          wireIdx: idx,
+          t: (i / count) + Math.random() * 0.2,
+          speed: 0.006 + Math.random() * 0.008
+        });
+      }
+    });
+
+    function resizeNeuralCanvas() {
+      const rect = neuralCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      nWidth = rect.width;
+      nHeight = rect.height;
+      if (nWidth === 0 || nHeight === 0) return;
+
+      neuralCanvas.width = Math.round(nWidth * dpr);
+      neuralCanvas.height = Math.round(nHeight * dpr);
+      nCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function getNodeCoords(node) {
+      let x = 110;
+      if (node.layer === 1) x = nWidth * 0.50;
+      if (node.layer === 2) x = nWidth - 110;
+      const y = 50 + (node.yPct * (nHeight - 100));
+      return { x, y };
+    }
+
+    function drawNeuralNetwork() {
+      nCtx.clearRect(0, 0, nWidth, nHeight);
+
+      // Subtle background grid
+      nCtx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      nCtx.lineWidth = 1;
+      for (let x = 0; x < nWidth; x += 32) {
+        nCtx.beginPath(); nCtx.moveTo(x, 0); nCtx.lineTo(x, nHeight); nCtx.stroke();
+      }
+      for (let y = 0; y < nHeight; y += 32) {
+        nCtx.beginPath(); nCtx.moveTo(0, y); nCtx.lineTo(nWidth, y); nCtx.stroke();
+      }
+
+      // Draw Axonal Neural Wires (Bezier Curves)
+      neuralWires.forEach((w, idx) => {
+        const fromNode = neuralNodes.find(n => n.id === w.from);
+        const toNode = neuralNodes.find(n => n.id === w.to);
+        if (!fromNode || !toNode) return;
+
+        const p1 = getNodeCoords(fromNode);
+        const p2 = getNodeCoords(toNode);
+        const cp = Math.abs(p2.x - p1.x) * 0.52;
+
+        const isFiltered = (nActiveFilter === "all" || w.filter === nActiveFilter || w.filter === "all");
+        const isHovered = (nHoveredWire === idx || (nHoveredNode && (nHoveredNode.id === w.from || nHoveredNode.id === w.to)));
+
+        nCtx.beginPath();
+        nCtx.moveTo(p1.x, p1.y);
+        nCtx.bezierCurveTo(p1.x + cp, p1.y, p2.x - cp, p2.y, p2.x, p2.y);
+
+        if (isHovered) {
+          nCtx.strokeStyle = w.color;
+          nCtx.lineWidth = 3.5;
+          nCtx.shadowBlur = 16;
+          nCtx.shadowColor = w.color;
+        } else if (isFiltered) {
+          nCtx.strokeStyle = w.color.replace(")", ", 0.45)").replace("rgb", "rgba").replace("#", "rgba(");
+          nCtx.lineWidth = 1.8;
+          nCtx.shadowBlur = 4;
+          nCtx.shadowColor = w.color;
+        } else {
+          nCtx.strokeStyle = "rgba(51, 65, 85, 0.15)";
+          nCtx.lineWidth = 0.8;
+          nCtx.shadowBlur = 0;
+        }
+        nCtx.stroke();
+        nCtx.shadowBlur = 0; // reset
+      });
+
+      // Draw Live Synaptic Particles (Electrical Energy Bursts)
+      neuralParticles.forEach(pt => {
+        const wire = neuralWires[pt.wireIdx];
+        if (!wire) return;
+
+        const isFiltered = (nActiveFilter === "all" || wire.filter === nActiveFilter || wire.filter === "all");
+        if (!isFiltered) return;
+
+        const fromNode = neuralNodes.find(n => n.id === wire.from);
+        const toNode = neuralNodes.find(n => n.id === wire.to);
+        if (!fromNode || !toNode) return;
+
+        const p1 = getNodeCoords(fromNode);
+        const p2 = getNodeCoords(toNode);
+        const cp = Math.abs(p2.x - p1.x) * 0.52;
+
+        pt.t += pt.speed;
+        if (pt.t > 1.0) pt.t = 0;
+
+        const t = pt.t;
+        const px = Math.pow(1-t, 3)*p1.x + 3*Math.pow(1-t, 2)*t*(p1.x + cp) + 3*(1-t)*Math.pow(t, 2)*(p2.x - cp) + Math.pow(t, 3)*p2.x;
+        const py = Math.pow(1-t, 3)*p1.y + 3*Math.pow(1-t, 2)*t*p1.y + 3*(1-t)*Math.pow(t, 2)*p2.y + Math.pow(t, 3)*p2.y;
+
+        nCtx.beginPath();
+        nCtx.arc(px, py, (nHoveredWire === pt.wireIdx ? 4 : 2.5), 0, Math.PI*2);
+        nCtx.fillStyle = wire.color;
+        nCtx.shadowBlur = 10;
+        nCtx.shadowColor = wire.color;
+        nCtx.fill();
+        nCtx.shadowBlur = 0;
+      });
+
+      // Draw Synaptic Nodes
+      neuralNodes.forEach(node => {
+        const pos = getNodeCoords(node);
+        const isHovered = (nHoveredNode && nHoveredNode.id === node.id);
+        const isFiltered = (nActiveFilter === "all" || node.filter === nActiveFilter || node.filter === "all");
+
+        // Outer Glow Ring
+        if (isHovered) {
+          nCtx.beginPath();
+          nCtx.arc(pos.x, pos.y, 22, 0, Math.PI*2);
+          nCtx.fillStyle = node.color.replace(")", ", 0.25)").replace("rgb", "rgba").replace("#", "rgba(");
+          nCtx.fill();
+        }
+
+        // Node Circle
+        nCtx.beginPath();
+        nCtx.arc(pos.x, pos.y, (isHovered ? 12 : 9), 0, Math.PI*2);
+        nCtx.fillStyle = isHovered ? node.color : (isFiltered ? "#0f172a" : "#030712");
+        nCtx.strokeStyle = isFiltered ? node.color : "#334155";
+        nCtx.lineWidth = isHovered ? 3 : 1.8;
+        nCtx.shadowBlur = isHovered ? 14 : (isFiltered ? 6 : 0);
+        nCtx.shadowColor = node.color;
+        nCtx.fill(); nCtx.stroke();
+        nCtx.shadowBlur = 0;
+
+        // Node Typography / Labels
+        nCtx.font = "bold 8px ui-monospace, monospace";
+        nCtx.fillStyle = isFiltered ? "#ffffff" : "#64748b";
+
+        if (node.layer === 0) {
+          // Left-aligned text for origin nodes
+          nCtx.textAlign = "right";
+          nCtx.fillText(node.label, pos.x - 16, pos.y + 1);
+          nCtx.font = "7px ui-monospace, monospace";
+          nCtx.fillStyle = isFiltered ? "rgba(255,255,255,0.4)" : "#334155";
+          nCtx.fillText(node.sub, pos.x - 16, pos.y + 10);
+        } else if (node.layer === 2) {
+          // Right-aligned text for host nodes
+          nCtx.textAlign = "left";
+          nCtx.fillText(node.label, pos.x + 16, pos.y + 1);
+          nCtx.font = "7px ui-monospace, monospace";
+          nCtx.fillStyle = isFiltered ? "rgba(255,255,255,0.4)" : "#334155";
+          nCtx.fillText(node.sub, pos.x + 16, pos.y + 10);
+        } else {
+          // Center-aligned text for Pico 2 nodes
+          nCtx.textAlign = "center";
+          nCtx.fillText(node.label, pos.x, pos.y - 14);
+          nCtx.font = "7px ui-monospace, monospace";
+          nCtx.fillStyle = isFiltered ? "rgba(192,132,252,0.8)" : "#334155";
+          nCtx.fillText(node.sub, pos.x, pos.y + 18);
+        }
+      });
+    }
+
+    let isNeuralLoopRunning = false;
+    function neuralAnimationLoop() {
+      // Only render if Tab 5 is visible
+      const tab5 = document.getElementById("tabContent5");
+      if (tab5 && !tab5.classList.contains("hidden")) {
+        drawNeuralNetwork();
+        requestAnimationFrame(neuralAnimationLoop);
+      } else {
+        isNeuralLoopRunning = false;
+      }
+    }
+
+    function startNeuralAnimation() {
+      if (!isNeuralLoopRunning) {
+        isNeuralLoopRunning = true;
+        resizeNeuralCanvas();
+        requestAnimationFrame(neuralAnimationLoop);
+      }
+    }
+
+    // Interaction on Neural Canvas
+    function findHoveredNeuralNode(mx, my) {
+      for (const node of neuralNodes) {
+        const pos = getNodeCoords(node);
+        const dist = Math.hypot(mx - pos.x, my - pos.y);
+        if (dist <= 26) return node;
+      }
+      return null;
+    }
+
+    neuralCanvas.addEventListener("pointermove", (e) => {
+      const rect = neuralCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const node = findHoveredNeuralNode(mx, my);
+      if (node !== nHoveredNode) {
+        nHoveredNode = node;
+        if (node) {
+          // Find first associated wire to update the telemetry card
+          const matchedWire = neuralWires.find(w => w.from === node.id || w.to === node.id);
+          if (matchedWire) updateSynapseTelemetry(matchedWire);
+        }
+      }
+    });
+
+    neuralCanvas.addEventListener("pointerleave", () => {
+      nHoveredNode = null;
+      nHoveredWire = null;
+    });
+
+    neuralCanvas.addEventListener("click", (e) => {
+      const rect = neuralCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const node = findHoveredNeuralNode(mx, my);
+      if (node) {
+        const matchedWire = neuralWires.find(w => w.from === node.id || w.to === node.id);
+        if (matchedWire) updateSynapseTelemetry(matchedWire);
+      }
+    });
+
+    function updateSynapseTelemetry(w) {
+      document.getElementById("synapseTitle").innerText = w.label;
+      document.getElementById("synapseVoltage").innerHTML = w.voltage;
+      document.getElementById("synapseOrigin").innerText = w.origin;
+      document.getElementById("synapseBridge").innerText = w.bridge;
+      document.getElementById("synapseTarget").innerText = w.target;
+      document.getElementById("synapseBadge").innerText = "SYNAPSE: " + w.filter.toUpperCase();
+    }
+
+    // Filter Buttons
+    document.querySelectorAll(".neural-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        nActiveFilter = btn.getAttribute("data-filter");
+        document.querySelectorAll(".neural-filter-btn").forEach(b => {
+          b.className = "btn neural-filter-btn";
+          b.style.background = "rgba(30,41,59,0.6)";
+        });
+        btn.className = "btn btn-active-emerald neural-filter-btn";
+        btn.style.background = "var(--emerald)";
+      });
+    });
+
+    // Hook tab navigation to start neural loop when Tab 5 is selected
+    const origSwitchTab = switchTab;
+    switchTab = function(idx) {
+      origSwitchTab(idx);
+      if (idx === 4) { // Tab 5 is index 4
+        setTimeout(() => {
+          resizeNeuralCanvas();
+          startNeuralAnimation();
+        }, 30);
+      }
+    };
+
+
+    window.addEventListener("resize", () => { resizeCanvas(); resizeNeuralCanvas(); requestRender(); });
+    window.addEventListener("DOMContentLoaded", () => {
+      resizeCanvas();
+      selectButton("play");
+      updateBpmReadout();
+      requestRender();
+    });
+    setTimeout(() => {
+      resizeCanvas();
+      selectButton("play");
+      updateBpmReadout();
+      requestRender();
+    }, 50);
+  </script>
+</body>
+</html>
