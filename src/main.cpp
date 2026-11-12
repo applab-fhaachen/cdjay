@@ -1,6 +1,6 @@
 /**
  * CDJay - Pioneer CDJ-850 USB-MIDI Controller
- * PlatformIO + Earle Philhower RP2040 Core + Adafruit TinyUSB
+ * PlatformIO + Earle Philhower RP2040/RP2350 Core + Adafruit TinyUSB
  */
 
 #include <Arduino.h>
@@ -15,7 +15,12 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 #define PIN_BTN_PLAY    15        // GP15: Play/Pause Button
 #define PIN_BTN_CUE     14        // GP14: CUE Button
 #define PIN_POT_PITCH   26        // GP26 / ADC0: Tempo / Pitch Slider
-#define PIN_LED         LED_BUILTIN
+#define PIN_STATUS_LED  LED_BUILTIN
+
+// Pioneer CDJ-850 Official MIDI Specification
+#define MIDI_NOTE_PLAY_PAUSE    0x00      // Note 0: Play / Pause
+#define MIDI_NOTE_CUE           0x01      // Note 1: CUE
+#define MIDI_CC_TEMPO           0x1D      // CC 29: Pitch / Tempo Slider
 
 // State tracking variables
 static bool last_play_state = HIGH;
@@ -23,12 +28,15 @@ static bool last_cue_state  = HIGH;
 static int  last_pitch_midi = -1;
 
 void setup() {
-    pinMode(PIN_LED, OUTPUT);
-    digitalWrite(PIN_LED, LOW);
+    pinMode(PIN_STATUS_LED, OUTPUT);
+    digitalWrite(PIN_STATUS_LED, LOW);
 
     // Buttons configured with internal pull-ups (Active LOW)
     pinMode(PIN_BTN_PLAY, INPUT_PULLUP);
     pinMode(PIN_BTN_CUE, INPUT_PULLUP);
+
+    // Enable CDC Serial for debugging & auto-reset
+    Serial.begin(115200);
 
     // Configure USB Descriptors to emulate Pioneer CDJ-850
     TinyUSBDevice.setManufacturerDescriptor("Pioneer DJ");
@@ -47,51 +55,50 @@ void loop() {
     TinyUSBDevice.task();
     #endif
 
+    // Flush any incoming MIDI messages from host
+    MIDI.read();
+
     // -------------------------------------------------------------------------
-    // A. PLAY / PAUSE Button (GP15 -> MIDI Note 60 / Middle C)
+    // A. PLAY / PAUSE Button (GP15 -> CDJ-850 Note 0)
     // -------------------------------------------------------------------------
     bool current_play = digitalRead(PIN_BTN_PLAY);
     if (current_play != last_play_state) {
         last_play_state = current_play;
         if (current_play == LOW) { // Button Pressed
-            digitalWrite(PIN_LED, HIGH);
-            // Note On: Note 60, Velocity 127, Channel 1 (Raw: 0x90 0x3C 0x7F)
-            MIDI.sendNoteOn(60, 127, 1);
+            digitalWrite(PIN_STATUS_LED, HIGH);
+            MIDI.sendNoteOn(MIDI_NOTE_PLAY_PAUSE, 127, 1);
         } else { // Button Released
-            digitalWrite(PIN_LED, LOW);
-            // Note Off: Note 60, Velocity 0, Channel 1 (Raw: 0x80 0x3C 0x00)
-            MIDI.sendNoteOff(60, 0, 1);
+            digitalWrite(PIN_STATUS_LED, LOW);
+            MIDI.sendNoteOff(MIDI_NOTE_PLAY_PAUSE, 0, 1);
         }
     }
 
     // -------------------------------------------------------------------------
-    // B. CUE Button (GP14 -> MIDI Note 61 / C#)
+    // B. CUE Button (GP14 -> CDJ-850 Note 1)
     // -------------------------------------------------------------------------
     bool current_cue = digitalRead(PIN_BTN_CUE);
     if (current_cue != last_cue_state) {
         last_cue_state = current_cue;
         if (current_cue == LOW) { // Button Pressed
-            digitalWrite(PIN_LED, HIGH);
-            // Note On: Note 61, Velocity 127, Channel 1 (Raw: 0x90 0x3D 0x7F)
-            MIDI.sendNoteOn(61, 127, 1);
+            digitalWrite(PIN_STATUS_LED, HIGH);
+            MIDI.sendNoteOn(MIDI_NOTE_CUE, 127, 1);
         } else { // Button Released
-            digitalWrite(PIN_LED, LOW);
-            // Note Off: Note 61, Velocity 0, Channel 1 (Raw: 0x80 0x3D 0x00)
-            MIDI.sendNoteOff(61, 0, 1);
+            digitalWrite(PIN_STATUS_LED, LOW);
+            MIDI.sendNoteOff(MIDI_NOTE_CUE, 0, 1);
         }
     }
 
     // -------------------------------------------------------------------------
-    // C. Pitch / Tempo Slider (GP26 / ADC0 -> MIDI CC 16)
+    // C. Pitch / Tempo Slider (GP26 / ADC0 -> CDJ-850 CC 29)
     // -------------------------------------------------------------------------
     int raw_adc = analogRead(PIN_POT_PITCH); // 10-bit: 0 to 1023
     int current_pitch_midi = map(raw_adc, 0, 1023, 0, 127); // Scale to 0 - 127
 
-    if (current_pitch_midi != last_pitch_midi) {
+    // Jitter filter to prevent floating pin noise from flooding the MIDI bus
+    if (abs(current_pitch_midi - last_pitch_midi) >= 2) {
         last_pitch_midi = current_pitch_midi;
-        // Control Change: Controller 16, Value 0-127, Channel 1 (Raw: 0xB0 0x10 <val>)
-        MIDI.sendControlChange(16, current_pitch_midi, 1);
+        MIDI.sendControlChange(MIDI_CC_TEMPO, current_pitch_midi, 1);
     }
 
-    delay(5); // Debounce
+    delay(10); // Debounce
 }

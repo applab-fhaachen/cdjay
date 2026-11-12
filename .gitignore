@@ -113,5 +113,6 @@ Testing/
 .cache/
 # Build artifacts & local caches
 .pio/
+.vscode/
 __pycache__/
 *.pyc
