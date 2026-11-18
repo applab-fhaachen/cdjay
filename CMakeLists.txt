@@ -15,13 +15,13 @@ endif()
 pico_sdk_init()
 
 add_executable(cdjay_midi
-    src/main.c
-    src/usb_descriptors.c
+    pico_c_sdk/main.c
+    pico_c_sdk/usb_descriptors.c
 )
 
 # Include TinyUSB header path
 target_include_directories(cdjay_midi PRIVATE
-    src
+    pico_c_sdk
 )
 
 # Link hardware libraries and TinyUSB
