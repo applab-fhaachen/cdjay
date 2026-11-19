@@ -11,7 +11,7 @@
 #include <Arduino.h>
 #include <Adafruit_TinyUSB.h>
 #include <MIDI.h>
-#include "StatusMessage.h">
+#include "StatusMessage.h"
 #include "PicoTransport.h"
 
 Adafruit_USBD_MIDI usb_midi;
@@ -172,9 +172,12 @@ static uint8_t note_for(Button b) {
     }
 }
 
+// Release is Note On with velocity 0, like the real CDJ-850. Mixxx's
+// "Pioneer CDJ-850" mapping only binds status 0x90; a real Note Off (0x80)
+// is ignored, so Cue stayed "held" (track stuck at the cue point, Play
+// dead) and Search / hot cues / scratch never released.
 static void send_note(uint8_t note, bool down) {
-    if (down) MIDI.sendNoteOn(note, 127, MIDI_CH);
-    else      MIDI.sendNoteOff(note, 0, MIDI_CH);
+    MIDI.sendNoteOn(note, down ? 127 : 0, MIDI_CH);
 }
 
 static void update_lights(uint32_t buttons) {
