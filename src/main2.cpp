@@ -11,7 +11,7 @@
 #include <Arduino.h>
 #include <Adafruit_TinyUSB.h>
 #include <MIDI.h>
-#include "StatusMessage.h"
+#include "StatusMessage.h">
 #include "PicoTransport.h"
 
 Adafruit_USBD_MIDI usb_midi;
@@ -53,7 +53,9 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 #define MIDI_NOTE_EJECT         0x2F  // eject
 #define MIDI_NOTE_UNMAPPED_BASE 0x60  // other buttons: 0x60 + Button index (unused by Mixxx)
 #define MIDI_CC_TEMPO           0x1D  // rate
-#define MIDI_CC_JOG             0x30  // jog_wheel, relative around 0x40
+#define MIDI_NOTE_JOG_TOUCH     0x20  // scratch2_enable (top plate touched in Vinyl mode)
+#define MIDI_CC_JOG             0x30  // jog_wheel (pitch bend), relative around 0x40
+#define MIDI_CC_JOG_SCRATCH     0x10  // jog_scratch, relative around 0x40
 
 // Raw pitch endpoints. The real fader range is not known yet: read
 // "pitch=" in the serial log at both ends of the fader and put them here.
@@ -62,6 +64,18 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 #endif
 #ifndef PITCH_RAW_MAX
 #define PITCH_RAW_MAX 65472  // measured on the CDJ-800 panel, 2026-11-18
+#endif
+
+// Direction of the analog controls. Mixxx's "Pioneer CDJ-850" mapping
+// inverts CC 0x1D, so the CC value must fall as the fader moves toward "+".
+// The CDJ-800 raw pitch value runs the other way, so it is flipped here.
+// Set to 0 (e.g. -DPITCH_INVERT=0) if the fader ends up backwards again.
+#ifndef PITCH_INVERT
+#define PITCH_INVERT 1
+#endif
+// Set to 1 if turning the jog clockwise moves the track backwards in Mixxx.
+#ifndef JOG_INVERT
+#define JOG_INVERT 0
 #endif
 
 // No valid frame for this long -> panel considered offline, notes released.
@@ -97,6 +111,13 @@ static uint32_t last_buttons = 0;
 static uint16_t last_jog_pulse = 0;
 static int      last_pitch_midi = -1;
 static bool     panel_online = false;
+static bool     jog_touched = false;   // scratch active (Vinyl on + jog moving)
+static unsigned long last_jog_move_ms = 0;
+
+// Vinyl mode: how long after the last jog movement scratch stays on.
+#ifndef JOG_RELEASE_MS
+#define JOG_RELEASE_MS 80
+#endif
 static unsigned long last_frame_ms = 0;
 static uint32_t valid_frames = 0, bad_frames = 0;
 static uint8_t  last_frame[BUFFER_LENGTH];
@@ -175,6 +196,8 @@ static void release_all(void) {
     for (uint8_t i = 0; i < static_cast<uint8_t>(Button::Count); ++i)
         if (last_buttons & (1UL << i)) send_note(note_for(static_cast<Button>(i)), false);
     last_buttons = 0;
+    if (jog_touched) send_note(MIDI_NOTE_JOG_TOUCH, false);
+    jog_touched = false;
     update_lights(0);
 }
 
@@ -207,11 +230,29 @@ static void handle_cdj_packet(const StatusMessage &msg) {
     // first frame after (re)connect only sets the reference.
     const int16_t delta = static_cast<int16_t>(msg.jogPulse - last_jog_pulse);
     last_jog_pulse = msg.jogPulse;
+
+    // Jog has two functions, switched by the Vinyl button:
+    //  - Vinyl ON  -> scratch: while the jog turns, Note 0x20 (scratch2_enable)
+    //    is held and the movement goes out on CC 0x10. JOG_RELEASE_MS after
+    //    the jog stops, the note is released and normal playback resumes.
+    //  - Vinyl OFF -> pitch bend / nudge on CC 0x30, never scratch.
+    // The touch sensor in the plate is not decoded yet, so jog movement
+    // stands in for "hand on the plate".
+    const unsigned long now = millis();
+    if (panel_online && delta != 0) last_jog_move_ms = now;
+    const bool touched = vinyl && last_jog_move_ms != 0 && now - last_jog_move_ms < JOG_RELEASE_MS;
+    if (touched != jog_touched) {
+        jog_touched = touched;
+        send_note(MIDI_NOTE_JOG_TOUCH, touched);
+        if (Serial) Serial.println(touched ? "JOG scratch on" : "JOG scratch off");
+    }
+
     if (panel_online && delta != 0) {
-        int remaining = delta;
+        const uint8_t cc = jog_touched ? MIDI_CC_JOG_SCRATCH : MIDI_CC_JOG;
+        int remaining = JOG_INVERT ? -delta : delta;
         while (remaining != 0) {   // relative CC: 64 = no move, 65..127 fwd, 1..63 rev
             int step = constrain(remaining, -63, 63);
-            MIDI.sendControlChange(MIDI_CC_JOG, (uint8_t)(64 + step), MIDI_CH);
+            MIDI.sendControlChange(cc, (uint8_t)(64 + step), MIDI_CH);
             remaining -= step;
         }
         jog_ring = ((jog_ring - 1 + delta) % 135 + 135) % 135 + 1;
@@ -220,6 +261,7 @@ static void handle_cdj_packet(const StatusMessage &msg) {
 
     long p = constrain((long)msg.pitch, (long)PITCH_RAW_MIN, (long)PITCH_RAW_MAX);
     int midi_pitch = (int)((p - PITCH_RAW_MIN) * 127L / ((long)PITCH_RAW_MAX - PITCH_RAW_MIN));
+    if (PITCH_INVERT) midi_pitch = 127 - midi_pitch;
     if (midi_pitch != last_pitch_midi) {
         last_pitch_midi = midi_pitch;
         MIDI.sendControlChange(MIDI_CC_TEMPO, (uint8_t)midi_pitch, MIDI_CH);
@@ -297,6 +339,154 @@ static void report(unsigned long now) {
     (void)now;
 }
 
+// ---------------------------------------------------------------------------
+// Jog-touch diagnostics. Nobody has decoded the touch sensor yet, and the
+// panel may only report it after the main board enables Vinyl mode in a
+// display frame. Two tools for finding out on the hardware:
+//  1. Status watcher: prints every change of the status bytes that are not
+//     buttons, pitch or jog counter (bytes 2, 3, 12, 13; the rotation bits
+//     0xC0 of byte 12 are ignored so turning the jog does not spam).
+//  2. Serial commands (type in the serial monitor, end with Enter):
+//       d <group> <index> <hex>   set display byte, e.g. "d 5 12 10"
+//       dump                      print all six display groups
+//       sweep                     set each display byte (group 0..5,
+//                                 byte 1..16) to FF for 0.5 s, one after
+//                                 the other, then restore. Hold the plate
+//                                 pressed while it runs and watch for
+//                                 "STATUS" lines.
+// ---------------------------------------------------------------------------
+static const uint8_t WATCH_BYTES[] = {2, 3, 12, 13};
+static uint8_t watch_prev[sizeof(WATCH_BYTES)];
+static bool    watch_init = false;
+
+static void watch_status(const uint8_t *raw) {
+    for (size_t i = 0; i < sizeof(WATCH_BYTES); ++i) {
+        const uint8_t b = WATCH_BYTES[i];
+        // Byte 3 bits 0x03 toggle on their own (heartbeat). Byte 12 bits
+        // 0xF0 follow jog rotation: 0x80 moving, 0x40 direction, 0x30 the
+        // encoder phases (Gray code). Both would drown real changes.
+        const uint8_t ignore = (b == 12) ? 0xF0 : (b == 3) ? 0x03 : 0x00;
+        const uint8_t v = raw[b];
+        if (watch_init && ((v ^ watch_prev[i]) & ~ignore) && Serial) {
+            Serial.print("STATUS byte "); Serial.print(b);
+            Serial.print(": "); if (watch_prev[i] < 0x10) Serial.print('0'); Serial.print(watch_prev[i], HEX);
+            Serial.print(" -> "); if (v < 0x10) Serial.print('0'); Serial.print(v, HEX);
+            Serial.print("   (vinyl="); Serial.print(vinyl ? "on" : "off");
+            Serial.println(")");
+        }
+        watch_prev[i] = v;
+    }
+    watch_init = true;
+}
+
+// Two sweep modes:
+//  sweep          all groups, whole byte = FF, 0.5 s each (touch search)
+//  bits <group>   one group, one bit at a time, 1.5 s each (find which
+//                 bit lights which VFD segment, e.g. the VINYL symbol)
+static bool     sweep_on = false, sweep_bits = false;
+static uint8_t  sweep_group = 0, sweep_index = 1, sweep_bit = 0, sweep_saved = 0;
+static unsigned long sweep_ms = 0;
+
+static void sweep_apply(void) {
+    sweep_saved = pico_spi_slave_get_display_byte(sweep_group, sweep_index);
+    const uint8_t v = sweep_bits ? (uint8_t)(sweep_saved | (1u << sweep_bit)) : 0xFF;
+    pico_spi_slave_set_display_byte(sweep_group, sweep_index, v);
+    Serial.print(sweep_bits ? "BITS" : "SWEEP");
+    Serial.print(" group "); Serial.print(sweep_group);
+    Serial.print(" byte "); Serial.print(sweep_index);
+    if (sweep_bits) {
+        Serial.print(" bit 0x");
+        if ((1u << sweep_bit) < 0x10) Serial.print('0');
+        Serial.print(1u << sweep_bit, HEX);
+        Serial.print("   -> d "); Serial.print(sweep_group); Serial.print(' ');
+        Serial.print(sweep_index); Serial.print(' '); Serial.println(v, HEX);
+    } else {
+        Serial.println(" = FF");
+    }
+}
+
+static void sweep_step(unsigned long now) {
+    if (!sweep_on || now - sweep_ms < (sweep_bits ? 1500u : 500u)) return;
+    sweep_ms = now;
+    pico_spi_slave_set_display_byte(sweep_group, sweep_index, sweep_saved);
+    bool next_byte = true;
+    if (sweep_bits && ++sweep_bit < 8) next_byte = false;
+    if (next_byte) {
+        sweep_bit = 0;
+        // Byte 17 (jog ring) is skipped: it is a position, not segments.
+        if (++sweep_index > 16) {
+            sweep_index = 1;
+            if (sweep_bits) sweep_group = DISPLAY_GROUPS; else ++sweep_group;
+        }
+    }
+    if (sweep_group >= DISPLAY_GROUPS) {
+        sweep_on = false;
+        Serial.println("SWEEP done, display restored");
+        return;
+    }
+    sweep_apply();
+}
+
+static void dump_display(void) {
+    for (uint8_t g = 0; g < DISPLAY_GROUPS; ++g) {
+        Serial.print("group "); Serial.print(g); Serial.print(": ");
+        for (uint8_t i = 1; i <= 17; ++i) {
+            const uint8_t v = pico_spi_slave_get_display_byte(g, i);
+            if (v < 0x10) Serial.print('0');
+            Serial.print(v, HEX); Serial.print(' ');
+        }
+        Serial.println();
+    }
+}
+
+static void handle_command(char *line) {
+    unsigned g, i, v;
+    if (sscanf(line, "d %u %u %x", &g, &i, &v) == 3) {
+        if (pico_spi_slave_set_display_byte((uint8_t)g, (uint8_t)i, (uint8_t)v)) {
+            Serial.print("display group "); Serial.print(g); Serial.print(" byte "); Serial.print(i);
+            Serial.print(" = "); Serial.println(v, HEX);
+        } else {
+            Serial.println("bad group/index (group 0..5, index 1..17)");
+        }
+    } else if (strcmp(line, "dump") == 0) {
+        dump_display();
+    } else if (strcmp(line, "sweep") == 0) {
+        if (!sweep_on) {
+            sweep_on = true; sweep_bits = false; sweep_group = 0; sweep_index = 1;
+            sweep_bit = 0; sweep_ms = millis();
+            sweep_apply();
+        }
+    } else if (sscanf(line, "bits %u", &g) == 1 && g < DISPLAY_GROUPS) {
+        if (!sweep_on) {
+            sweep_on = true; sweep_bits = true; sweep_group = (uint8_t)g; sweep_index = 1;
+            sweep_bit = 0; sweep_ms = millis();
+            sweep_apply();
+        }
+    } else if (strcmp(line, "stop") == 0) {
+        if (sweep_on) {
+            pico_spi_slave_set_display_byte(sweep_group, sweep_index, sweep_saved);
+            sweep_on = false;
+            Serial.println("SWEEP stopped, display restored");
+        }
+    } else if (line[0]) {
+        Serial.println("commands: d <group> <index> <hex> | dump | sweep | bits <group> | stop");
+    }
+}
+
+static void poll_serial(void) {
+    static char buf[40];
+    static uint8_t len = 0;
+    while (Serial.available()) {
+        const char c = (char)Serial.read();
+        if (c == '\r' || c == '\n') {
+            buf[len] = 0; len = 0;
+            handle_command(buf);
+        } else if (len < sizeof(buf) - 1) {
+            buf[len++] = c;
+        }
+    }
+}
+
 void setup() {
     // Power the level shifter first so the SPI lines are live before init.
     pinMode(PIN_SHIFTER_VA, OUTPUT);
@@ -317,14 +507,16 @@ void setup() {
     MIDI.begin(MIDI_CHANNEL_OMNI);
     Serial.begin(115200);
 
-    // On the Pico 2 W the host often enumerates USB before setup() gets
-    // here, so it never sees the MIDI interface or the CDJ-850 name.
-    // Reconnect so the host reads the full descriptor.
-    if (TinyUSBDevice.mounted()) {
-        TinyUSBDevice.detach();
-        delay(10);
-        TinyUSBDevice.attach();
-    }
+    // The core starts USB (serial only) before setup(), so the host may
+    // already have enumerated - or, behind a slow hub, be in the middle of
+    // enumerating - the old descriptor. Always disconnect long enough for
+    // a hub to notice (its debounce is ~100 ms), then reconnect so the host
+    // reads the full descriptor with MIDI and the CDJ-850 name. A short or
+    // conditional reconnect left the device as "Unnamed Device" with no
+    // serial port behind a USB 2.0 hub.
+    TinyUSBDevice.detach();
+    delay(300);
+    TinyUSBDevice.attach();
 
     pico_spi_slave_init();
     set_jog_ring((uint8_t)jog_ring);
@@ -344,6 +536,7 @@ void loop() {
         memcpy(last_frame, frame, BUFFER_LENGTH);
         if (StatusMessage::isValid(frame)) {
             const StatusMessage msg = StatusMessage::createMessage(frame);
+            watch_status(frame);
             handle_cdj_packet(msg);
             last_msg = msg;
             valid_frames++;
@@ -360,6 +553,9 @@ void loop() {
         release_all();
         if (Serial) Serial.println("panel timeout: all notes released");
     }
+
+    poll_serial();
+    sweep_step(now);
 
     // Onboard LED: steady when the panel talks to us, slow blink otherwise.
     digitalWrite(PIN_STATUS_LED, panel_online ? HIGH : ((now / 500) & 1));
