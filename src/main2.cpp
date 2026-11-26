@@ -12,6 +12,7 @@
 #include <Adafruit_TinyUSB.h>
 #include <MIDI.h>
 #include "StatusMessage.h"
+#include "PanelDisplay.h"
 #include "PicoTransport.h"
 
 Adafruit_USBD_MIDI usb_midi;
@@ -444,6 +445,7 @@ static void dump_display(void) {
 
 static void handle_command(char *line) {
     unsigned g, i, v;
+    int t;
     if (sscanf(line, "d %u %u %x", &g, &i, &v) == 3) {
         if (pico_spi_slave_set_display_byte((uint8_t)g, (uint8_t)i, (uint8_t)v)) {
             Serial.print("display group "); Serial.print(g); Serial.print(" byte "); Serial.print(i);
@@ -465,6 +467,20 @@ static void handle_command(char *line) {
             sweep_bit = 0; sweep_ms = millis();
             sweep_apply();
         }
+    } else if (strcmp(line, "lamp") == 0) {
+        panel_display::lampTest();
+        Serial.println("lamp test: all display bytes 1..16 = FF ('clear' to undo)");
+    } else if (strcmp(line, "clear") == 0) {
+        panel_display::clear();
+        update_lights(last_buttons);
+        Serial.println("display cleared");
+    } else if (sscanf(line, "bpm %u", &v) == 1) {
+        Serial.println(panel_display::setBpm((uint16_t)v) ? "bpm set" : "bpm 0..399");
+    } else if (sscanf(line, "track %u", &v) == 1) {
+        Serial.println(panel_display::setTrack((uint16_t)v) ? "track set" : "track 0..999");
+    } else if (sscanf(line, "tempo %d", &t) == 1) {
+        Serial.println(panel_display::setTempo((int16_t)t, false, master_tempo)
+                       ? "tempo set (hundredths of %)" : "tempo -1600..1600");
     } else if (strcmp(line, "stop") == 0) {
         if (sweep_on) {
             pico_spi_slave_set_display_byte(sweep_group, sweep_index, sweep_saved);
@@ -473,6 +489,7 @@ static void handle_command(char *line) {
         }
     } else if (line[0]) {
         Serial.println("commands: d <group> <index> <hex> | dump | sweep | bits <group> | stop");
+        Serial.println("display:  lamp | clear | bpm <n> | track <n> | tempo <hundredths>");
     }
 }
 

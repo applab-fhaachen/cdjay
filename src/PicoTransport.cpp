@@ -250,8 +250,10 @@ static void close_frame(uint32_t now) {
         if (nbits - start > BUFFER_LENGTH * 8) stats.long_frames++;
         tx_group = (uint8_t)((tx_group + 1) % DISPLAY_GROUPS);
     } else {
+        // Short bursts (stray clocks, the panel's short transfers) are not
+        // status frames: re-send the same display group instead of
+        // restarting at 0, or groups 1..5 never reach the panel.
         stats.short_frames++;
-        tx_group = 0;
     }
     // Reset every frame: re-aligns bits and flushes TX, then preload.
     restart_rx_sm();

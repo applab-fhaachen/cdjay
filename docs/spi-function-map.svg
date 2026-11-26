@@ -1,0 +1,434 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3010" height="2012" viewBox="0 0 3010 2012" font-family="-apple-system,Helvetica,Arial,sans-serif">
+<defs>
+<marker id="a_call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#888780" stroke-width="1.6"/></marker>
+<marker id="a_irq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#BA7517" stroke-width="1.6"/></marker>
+<marker id="a_hw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#5F5E5A" stroke-width="1.6"/></marker>
+<marker id="a_data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#1D9E75" stroke-width="1.6"/></marker>
+</defs>
+<rect width="3010" height="2012" fill="#FCFCFA"/>
+<text x="60" y="70" font-size="34" font-weight="600" fill="#2C2C2A">CDJAY: every function on the SPI message path</text>
+<text x="60" y="106" font-size="18" fill="#5F5E5A">Branch refactor/spi-slave-library + your uncommitted main2.cpp / PanelDisplay changes. Arrows point from caller to callee. Line numbers are file:line.</text>
+<rect x="60" y="150" width="390" height="50" rx="8" fill="#185FA5"/>
+<text x="255.0" y="181" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">main2.cpp: firmware, MIDI, serial</text>
+<rect x="560" y="150" width="390" height="50" rx="8" fill="#993C1D"/>
+<text x="755.0" y="181" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">StatusMessage / PanelDisplay / MIDI</text>
+<rect x="1060" y="150" width="390" height="50" rx="8" fill="#0F6E56"/>
+<text x="1255.0" y="181" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">PicoTransport: public API + data</text>
+<rect x="1560" y="150" width="390" height="50" rx="8" fill="#0F6E56"/>
+<text x="1755.0" y="181" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">PicoTransport: internals (your code)</text>
+<rect x="2060" y="150" width="390" height="50" rx="8" fill="#534AB7"/>
+<text x="2255.0" y="181" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">SPISlave library (arduino-pico core)</text>
+<rect x="2560" y="150" width="390" height="50" rx="8" fill="#5F5E5A"/>
+<text x="2755.0" y="181" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">Hardware, IRQs, timer</text>
+<path d="M450 267.0 C723.6 267.0,784.4 267.0,1058 267.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 267.0 C540 267.0,540 855.0,452 855.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 267.0 C540 267.0,540 659.0,452 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C723.6 365.0,784.4 365.0,1058 365.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C498.6 365.0,509.4 267.0,558 267.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C498.6 365.0,509.4 561.0,558 561.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C540 365.0,540 561.0,452 561.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C540 365.0,540 463.0,452 463.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C540 365.0,540 1149.0,452 1149.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C540 365.0,540 1443.0,452 1443.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C540 365.0,540 1835.0,452 1835.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 365.0 C540 365.0,540 1247.0,452 1247.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C498.6 463.0,509.4 855.0,558 855.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C540 463.0,540 953.0,452 953.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C540 463.0,540 1051.0,452 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C540 463.0,540 855.0,452 855.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C540 463.0,540 659.0,452 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C540 463.0,540 1345.0,452 1345.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 463.0 C498.6 463.0,509.4 953.0,558 953.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 659.0 C540 659.0,540 757.0,452 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 757.0 C723.6 757.0,784.4 757.0,1058 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 757.0 C723.6 757.0,784.4 659.0,1058 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 855.0 C723.6 855.0,784.4 659.0,1058 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1051.0 C498.6 1051.0,509.4 953.0,558 953.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1149.0 C540 1149.0,540 953.0,452 953.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1149.0 C540 1149.0,540 1051.0,452 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1149.0 C540 1149.0,540 659.0,452 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1247.0 C723.6 1247.0,784.4 953.0,1058 953.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1247.0 C723.6 1247.0,784.4 1051.0,1058 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1247.0 C540 1247.0,540 1345.0,452 1345.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1443.0 C540 1443.0,540 1541.0,452 1541.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C723.6 1541.0,784.4 659.0,1058 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C540 1541.0,540 1639.0,452 1639.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C540 1541.0,540 1737.0,452 1737.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C540 1541.0,540 659.0,452 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C498.6 1541.0,509.4 1051.0,558 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C498.6 1541.0,509.4 1149.0,558 1149.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1541.0 C498.6 1541.0,509.4 1247.0,558 1247.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1639.0 C723.6 1639.0,784.4 757.0,1058 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1737.0 C723.6 1737.0,784.4 757.0,1058 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1737.0 C723.6 1737.0,784.4 659.0,1058 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1835.0 C723.6 1835.0,784.4 659.0,1058 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M450 1835.0 C540 1835.0,540 1737.0,452 1737.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 267.0 C1040 267.0,1040 365.0,952 365.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 365.0 C1040 365.0,1040 463.0,952 463.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 561.0 C1040 561.0,1040 659.0,952 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 561.0 C1040 561.0,1040 757.0,952 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 855.0 C1040 855.0,1040 757.0,952 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1051.0 C1040 1051.0,1040 1541.0,952 1541.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1149.0 C1040 1149.0,1040 1345.0,952 1345.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1247.0 C1040 1247.0,1040 1541.0,952 1541.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1247.0 C1040 1247.0,1040 1443.0,952 1443.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1247.0 C1040 1247.0,1040 1345.0,952 1345.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1345.0 C1040 1345.0,1040 1541.0,952 1541.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1443.0 C1040 1443.0,1040 1541.0,952 1541.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1443.0 C998.6 1443.0,1009.4 757.0,1058 757.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M950 1541.0 C998.6 1541.0,1009.4 659.0,1058 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1498.6 267.0,1509.4 1345.0,1558 1345.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1723.6 267.0,1784.4 855.0,2058 855.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1723.6 267.0,1784.4 953.0,2058 953.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1498.6 267.0,1509.4 1051.0,1558 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1498.6 267.0,1509.4 1149.0,1558 1149.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1498.6 267.0,1509.4 855.0,1558 855.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 267.0 C1948.6 267.0,2059.4 267.0,2558 267.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1450 463.0 C1540 463.0,1540 365.0,1452 365.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1060 463.0 C1011.4 463.0,1000.6 267.0,952 267.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1060 463.0 C1011.4 463.0,1000.6 561.0,952 561.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 267.0 C2040 267.0,2040 659.0,1952 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 267.0 C2040 267.0,2040 365.0,1952 365.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 757.0 C2040 757.0,2040 659.0,1952 659.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 365.0 C2040 365.0,2040 463.0,1952 463.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1560 365.0 C1286.4 365.0,1225.6 267.0,952 267.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 365.0 C2040 365.0,2040 561.0,1952 561.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 365.0 C2040 365.0,2040 1051.0,1952 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 365.0 C2040 365.0,2040 1149.0,1952 1149.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 1051.0 C2040 1051.0,2040 1345.0,1952 1345.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 1051.0 C1998.6 1051.0,2009.4 1051.0,2058 1051.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M1950 1149.0 C1998.6 1149.0,2009.4 1149.0,2058 1149.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M2060 1247.0 C2011.4 1247.0,2000.6 1247.0,1952 1247.0" fill="none" stroke="#888780" stroke-width="1.2" opacity="0.55" marker-end="url(#a_call)"/>
+<path d="M2560 267.0 C2286.4 267.0,2225.6 267.0,1952 267.0" fill="none" stroke="#BA7517" stroke-width="2" opacity="0.9" stroke-dasharray="8 5" marker-end="url(#a_irq)"/>
+<path d="M2560 757.0 C2286.4 757.0,2225.6 757.0,1952 757.0" fill="none" stroke="#BA7517" stroke-width="2" opacity="0.9" stroke-dasharray="8 5" marker-end="url(#a_irq)"/>
+<path d="M2560 1247.0 C2511.4 1247.0,2500.6 1247.0,2452 1247.0" fill="none" stroke="#BA7517" stroke-width="2" opacity="0.9" stroke-dasharray="8 5" marker-end="url(#a_irq)"/>
+<path d="M2560 463.0 C2470 463.0,2470 659.0,2558 659.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2560 463.0 C2470 463.0,2470 1051.0,2558 1051.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2560 659.0 C2470 659.0,2470 757.0,2558 757.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2560 1051.0 C2470 1051.0,2470 1247.0,2558 1247.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2560 1051.0 C2470 1051.0,2470 1149.0,2558 1149.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2560 1149.0 C2470 1149.0,2470 463.0,2558 463.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M1950 855.0 C2223.6 855.0,2284.4 659.0,2558 659.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2450 1051.0 C2498.6 1051.0,2509.4 1051.0,2558 1051.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M2450 1247.0 C2498.6 1247.0,2509.4 1051.0,2558 1051.0" fill="none" stroke="#5F5E5A" stroke-width="1.6" opacity="0.9" stroke-dasharray="2 4" marker-end="url(#a_hw)"/>
+<path d="M1950 659.0 C2040 659.0,2040 953.0,1952 953.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<path d="M1950 953.0 C2040 953.0,2040 365.0,1952 365.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<path d="M1560 365.0 C1511.4 365.0,1500.6 561.0,1452 561.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<path d="M1450 561.0 C1540 561.0,1540 365.0,1452 365.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<path d="M1450 659.0 C1540 659.0,1540 855.0,1452 855.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<path d="M1450 855.0 C1540 855.0,1540 757.0,1452 757.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<path d="M1450 855.0 C1498.6 855.0,1509.4 1149.0,1558 1149.0" fill="none" stroke="#1D9E75" stroke-width="2" opacity="0.9" stroke-dasharray="6 3" marker-end="url(#a_data)"/>
+<g><rect x="60" y="230" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="257" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">setup()</text>
+<text x="74" y="280" font-size="13.5" fill="#185FA5">Powers shifter, USB, starts transport</text>
+<text x="74" y="297" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:510</text>
+</g>
+<g><rect x="60" y="328" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="355" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">loop()</text>
+<text x="74" y="378" font-size="13.5" fill="#185FA5">Reads frames, timeout, serial, report</text>
+<text x="74" y="395" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:546</text>
+</g>
+<g><rect x="60" y="426" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="453" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">handle_cdj_packet()</text>
+<text x="74" y="476" font-size="13.5" fill="#185FA5">Panel state -&gt; notes, pitch, jog MIDI</text>
+<text x="74" y="493" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:208</text>
+</g>
+<g><rect x="60" y="524" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="551" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">watch_status()</text>
+<text x="74" y="574" font-size="13.5" fill="#185FA5">Logs changes of bytes 2,3,12,13</text>
+<text x="74" y="591" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:366</text>
+</g>
+<g><rect x="60" y="622" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="649" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">update_lights()</text>
+<text x="74" y="672" font-size="13.5" fill="#185FA5">Button LEDs from play/cue/loop state</text>
+<text x="74" y="689" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:184</text>
+</g>
+<g><rect x="60" y="720" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="747" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">set_light()</text>
+<text x="74" y="770" font-size="13.5" fill="#185FA5">Sets/clears one LED bit</text>
+<text x="74" y="787" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:142</text>
+</g>
+<g><rect x="60" y="818" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="845" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">set_jog_ring()</text>
+<text x="74" y="868" font-size="13.5" fill="#185FA5">Jog ring position, all 6 groups</text>
+<text x="74" y="885" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:148</text>
+</g>
+<g><rect x="60" y="916" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="943" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">note_for()</text>
+<text x="74" y="966" font-size="13.5" fill="#185FA5">Button -&gt; MIDI note number</text>
+<text x="74" y="983" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:153</text>
+</g>
+<g><rect x="60" y="1014" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1041" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">send_note()</text>
+<text x="74" y="1064" font-size="13.5" fill="#185FA5">Note On (vel 127 / vel 0)</text>
+<text x="74" y="1081" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:180</text>
+</g>
+<g><rect x="60" y="1112" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1139" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">release_all()</text>
+<text x="74" y="1162" font-size="13.5" fill="#185FA5">Panel lost: release held notes</text>
+<text x="74" y="1179" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:199</text>
+</g>
+<g><rect x="60" y="1210" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1237" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">report()</text>
+<text x="74" y="1260" font-size="13.5" fill="#185FA5">1 s serial stats + pin check</text>
+<text x="74" y="1277" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:275</text>
+</g>
+<g><rect x="60" y="1308" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1335" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">print_hex()</text>
+<text x="74" y="1358" font-size="13.5" fill="#185FA5">Hex dump helper</text>
+<text x="74" y="1375" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:134</text>
+</g>
+<g><rect x="60" y="1406" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1433" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">poll_serial()</text>
+<text x="74" y="1456" font-size="13.5" fill="#185FA5">Collects a typed serial line</text>
+<text x="74" y="1473" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:496</text>
+</g>
+<g><rect x="60" y="1504" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1531" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">handle_command()</text>
+<text x="74" y="1554" font-size="13.5" fill="#185FA5">d / dump / sweep / lamp / bpm ...</text>
+<text x="74" y="1571" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:446</text>
+</g>
+<g><rect x="60" y="1602" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1629" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">dump_display()</text>
+<text x="74" y="1652" font-size="13.5" fill="#185FA5">Prints the display table</text>
+<text x="74" y="1669" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:434</text>
+</g>
+<g><rect x="60" y="1700" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1727" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">sweep_apply()</text>
+<text x="74" y="1750" font-size="13.5" fill="#185FA5">Writes the current sweep test byte</text>
+<text x="74" y="1767" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:394</text>
+</g>
+<g><rect x="60" y="1798" width="390" height="74" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="74" y="1825" font-size="16" font-weight="600" fill="#0C447C" font-family="Menlo,monospace">sweep_step()</text>
+<text x="74" y="1848" font-size="13.5" fill="#185FA5">Advances the sweep every N ms</text>
+<text x="74" y="1865" font-size="11.5" fill="#185FA5" opacity="0.8" font-family="Menlo,monospace">main2.cpp:412</text>
+</g>
+<g><rect x="560" y="230" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="257" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">StatusMessage::isValid()</text>
+<text x="574" y="280" font-size="13.5" fill="#993C1D">Header 01 10 + checksum ok</text>
+<text x="574" y="297" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:40</text>
+</g>
+<g><rect x="560" y="328" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="355" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">StatusMessage::isValidCrc()</text>
+<text x="574" y="378" font-size="13.5" fill="#993C1D">checksum(arr) == arr[19]</text>
+<text x="574" y="395" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:36</text>
+</g>
+<g><rect x="560" y="426" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="453" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">StatusMessage::checksum()</text>
+<text x="574" y="476" font-size="13.5" fill="#993C1D">Checksum over bytes 0..18</text>
+<text x="574" y="493" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:27</text>
+</g>
+<g><rect x="560" y="524" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="551" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">StatusMessage::createMessage()</text>
+<text x="574" y="574" font-size="13.5" fill="#993C1D">Decode pitch, jog, 27 buttons</text>
+<text x="574" y="591" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:57</text>
+</g>
+<g><rect x="560" y="622" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="649" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">be16()</text>
+<text x="574" y="672" font-size="13.5" fill="#993C1D">Big-endian 16-bit read</text>
+<text x="574" y="689" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:11</text>
+</g>
+<g><rect x="560" y="720" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="747" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">StatusMessage::down()</text>
+<text x="574" y="770" font-size="13.5" fill="#993C1D">Is one button pressed?</text>
+<text x="574" y="787" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:44</text>
+</g>
+<g><rect x="560" y="818" width="390" height="74" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.4"/>
+<text x="574" y="845" font-size="16" font-weight="600" fill="#712B13" font-family="Menlo,monospace">StatusMessage::buttons()</text>
+<text x="574" y="868" font-size="13.5" fill="#993C1D">All buttons as a bitmask</text>
+<text x="574" y="885" font-size="11.5" fill="#993C1D" opacity="0.8" font-family="Menlo,monospace">StatusMessage.cpp:50</text>
+</g>
+<g><rect x="560" y="916" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="574" y="943" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">USB-MIDI -&gt; Mixxx</text>
+<text x="574" y="966" font-size="13.5" fill="#5F5E5A">MIDI library over TinyUSB</text>
+</g>
+<g><rect x="560" y="1014" width="390" height="74" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="1.4"/>
+<text x="574" y="1041" font-size="16" font-weight="600" fill="#72243E" font-family="Menlo,monospace">panel_display::clear() / lampTest()</text>
+<text x="574" y="1064" font-size="13.5" fill="#993556">All segments off / on</text>
+<text x="574" y="1081" font-size="11.5" fill="#993556" opacity="0.8" font-family="Menlo,monospace">PanelDisplay.cpp:36</text>
+</g>
+<g><rect x="560" y="1112" width="390" height="74" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="1.4"/>
+<text x="574" y="1139" font-size="16" font-weight="600" fill="#72243E" font-family="Menlo,monospace">panel_display::setBpm() / setTrack()</text>
+<text x="574" y="1162" font-size="13.5" fill="#993556">3-digit number, 7-segment</text>
+<text x="574" y="1179" font-size="11.5" fill="#993556" opacity="0.8" font-family="Menlo,monospace">PanelDisplay.cpp:47</text>
+</g>
+<g><rect x="560" y="1210" width="390" height="74" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="1.4"/>
+<text x="574" y="1237" font-size="16" font-weight="600" fill="#72243E" font-family="Menlo,monospace">panel_display::setTempo()</text>
+<text x="574" y="1260" font-size="13.5" fill="#993556">Tempo %, sign, WIDE, MT flags</text>
+<text x="574" y="1277" font-size="11.5" fill="#993556" opacity="0.8" font-family="Menlo,monospace">PanelDisplay.cpp:61</text>
+</g>
+<g><rect x="560" y="1308" width="390" height="74" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="1.4"/>
+<text x="574" y="1335" font-size="16" font-weight="600" fill="#72243E" font-family="Menlo,monospace">putNumber() / clearNumber()</text>
+<text x="574" y="1358" font-size="13.5" fill="#993556">Digits into bytes 11..13</text>
+<text x="574" y="1375" font-size="11.5" fill="#993556" opacity="0.8" font-family="Menlo,monospace">PanelDisplay.cpp:17</text>
+</g>
+<g><rect x="560" y="1406" width="390" height="74" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="1.4"/>
+<text x="574" y="1433" font-size="16" font-weight="600" fill="#72243E" font-family="Menlo,monospace">setLight() (PanelDisplay)</text>
+<text x="574" y="1456" font-size="13.5" fill="#993556">WIDE / MT lamp bits</text>
+<text x="574" y="1473" font-size="11.5" fill="#993556" opacity="0.8" font-family="Menlo,monospace">PanelDisplay.cpp:27</text>
+</g>
+<g><rect x="560" y="1504" width="390" height="74" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="1.4"/>
+<text x="574" y="1531" font-size="16" font-weight="600" fill="#72243E" font-family="Menlo,monospace">put()</text>
+<text x="574" y="1554" font-size="13.5" fill="#993556">Wrapper for set_display_byte</text>
+<text x="574" y="1571" font-size="11.5" fill="#993556" opacity="0.8" font-family="Menlo,monospace">PanelDisplay.cpp:12</text>
+</g>
+<g><rect x="1060" y="230" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="257" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_init()</text>
+<text x="1074" y="280" font-size="13.5" fill="#0F6E56">Pins, SPISlave, PIO, 100 us timer</text>
+<text x="1074" y="297" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:264</text>
+</g>
+<g><rect x="1060" y="328" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="355" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_read_frame()</text>
+<text x="1074" y="378" font-size="13.5" fill="#0F6E56">Hands loop() the newest frame</text>
+<text x="1074" y="395" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:293</text>
+</g>
+<g><rect x="1060" y="426" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="453" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_read_packet()</text>
+<text x="1074" y="476" font-size="13.5" fill="#0F6E56">read_frame + validate + decode (unused)</text>
+<text x="1074" y="493" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:305</text>
+</g>
+<g><rect x="1060" y="524" width="390" height="74" rx="8" fill="#FFFFFF" stroke="#0F6E56" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="1074" y="551" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">ready_buffer + packet_ready</text>
+<text x="1074" y="574" font-size="13.5" fill="#0F6E56">Latest 20-byte status frame</text>
+</g>
+<g><rect x="1060" y="622" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="649" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_set_display_byte()</text>
+<text x="1074" y="672" font-size="13.5" fill="#0F6E56">Write display[group][index]</text>
+<text x="1074" y="689" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:312</text>
+</g>
+<g><rect x="1060" y="720" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="747" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_get_display_byte()</text>
+<text x="1074" y="770" font-size="13.5" fill="#0F6E56">Read display[group][index]</text>
+<text x="1074" y="787" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:318</text>
+</g>
+<g><rect x="1060" y="818" width="390" height="74" rx="8" fill="#FFFFFF" stroke="#0F6E56" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="1074" y="845" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">display[6][20]</text>
+<text x="1074" y="868" font-size="13.5" fill="#0F6E56">Six display groups, bytes 1..17</text>
+</g>
+<g><rect x="1060" y="916" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="943" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_get_stats()</text>
+<text x="1074" y="966" font-size="13.5" fill="#0F6E56">Frame counters + histograms</text>
+<text x="1074" y="983" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:323</text>
+</g>
+<g><rect x="1060" y="1014" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1074" y="1041" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">pico_spi_slave_get_sel_log()</text>
+<text x="1074" y="1064" font-size="13.5" fill="#0F6E56">Last 24 bursts (diagnostics)</text>
+<text x="1074" y="1081" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:329</text>
+</g>
+<g><rect x="1560" y="230" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="257" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">on_idle_timer()</text>
+<text x="1574" y="280" font-size="13.5" fill="#0F6E56">Every 100 us: 400 us idle -&gt; frame end</text>
+<text x="1574" y="297" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:254</text>
+</g>
+<g><rect x="1560" y="328" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="355" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">close_frame()</text>
+<text x="1574" y="378" font-size="13.5" fill="#0F6E56">Split, find offset, stats, reset, next TX</text>
+<text x="1574" y="395" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:191</text>
+</g>
+<g><rect x="1560" y="426" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="453" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">bits_to_bytes()</text>
+<text x="1574" y="476" font-size="13.5" fill="#0F6E56">Packs 160 bits into 20 bytes</text>
+<text x="1574" y="493" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:183</text>
+</g>
+<g><rect x="1560" y="524" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="551" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">restart_rx_sm()</text>
+<text x="1574" y="574" font-size="13.5" fill="#0F6E56">Clears + restarts PIO receiver</text>
+<text x="1574" y="591" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:99</text>
+</g>
+<g><rect x="1560" y="622" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="649" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">drain_rx()</text>
+<text x="1574" y="672" font-size="13.5" fill="#0F6E56">PIO FIFO -&gt; rx_bits[] + timestamps</text>
+<text x="1574" y="689" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:83</text>
+</g>
+<g><rect x="1560" y="720" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="747" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">on_pio_irq()</text>
+<text x="1574" y="770" font-size="13.5" fill="#0F6E56">PIO IRQ handler</text>
+<text x="1574" y="787" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:97</text>
+</g>
+<g><rect x="1560" y="818" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="845" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">start_rx_pio()</text>
+<text x="1574" y="868" font-size="13.5" fill="#0F6E56">Loads 6-instr glitch-filter program</text>
+<text x="1574" y="885" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:107</text>
+</g>
+<g><rect x="1560" y="916" width="390" height="74" rx="8" fill="#FFFFFF" stroke="#0F6E56" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="1574" y="943" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">rx_bits[] / rx_bit_us[]</text>
+<text x="1574" y="966" font-size="13.5" fill="#0F6E56">Bits of the current burst</text>
+</g>
+<g><rect x="1560" y="1014" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="1041" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">configure_spi_hw()</text>
+<text x="1574" y="1064" font-size="13.5" fill="#0F6E56">SPISlave.begin + CS override + prio</text>
+<text x="1574" y="1081" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:171</text>
+</g>
+<g><rect x="1560" y="1112" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="1139" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">load_tx_group()</text>
+<text x="1574" y="1162" font-size="13.5" fill="#0F6E56">Header, checksum, setData()</text>
+<text x="1574" y="1179" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:158</text>
+</g>
+<g><rect x="1560" y="1210" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="1237" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">on_spi_recv()</text>
+<text x="1574" y="1260" font-size="13.5" fill="#0F6E56">Drops PL022 RX bytes</text>
+<text x="1574" y="1277" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:169</text>
+</g>
+<g><rect x="1560" y="1308" width="390" height="74" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="1574" y="1335" font-size="16" font-weight="600" fill="#085041" font-family="Menlo,monospace">slave() / spi_irq_num()</text>
+<text x="1574" y="1358" font-size="13.5" fill="#0F6E56">SPISlave or SPISlave1, IRQ number</text>
+<text x="1574" y="1375" font-size="11.5" fill="#0F6E56" opacity="0.8" font-family="Menlo,monospace">PicoTransport.cpp:75</text>
+</g>
+<g><rect x="2060" y="818" width="390" height="74" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/>
+<text x="2074" y="845" font-size="16" font-weight="600" fill="#3C3489" font-family="Menlo,monospace">SPISlave.setRX/CS/SCK/TX()</text>
+<text x="2074" y="868" font-size="13.5" fill="#534AB7">Choose GP16/17/18/19</text>
+<text x="2074" y="885" font-size="11.5" fill="#534AB7" opacity="0.8" font-family="Menlo,monospace">SPISlave.cpp:55</text>
+</g>
+<g><rect x="2060" y="916" width="390" height="74" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/>
+<text x="2074" y="943" font-size="16" font-weight="600" fill="#3C3489" font-family="Menlo,monospace">SPISlave.onDataRecv()</text>
+<text x="2074" y="966" font-size="13.5" fill="#534AB7">Register RX callback</text>
+<text x="2074" y="983" font-size="11.5" fill="#534AB7" opacity="0.8" font-family="Menlo,monospace">SPISlave.cpp</text>
+</g>
+<g><rect x="2060" y="1014" width="390" height="74" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/>
+<text x="2074" y="1041" font-size="16" font-weight="600" fill="#3C3489" font-family="Menlo,monospace">SPISlave.begin()</text>
+<text x="2074" y="1064" font-size="13.5" fill="#534AB7">Pin funcs, spi_init, slave, mode 3, IRQ</text>
+<text x="2074" y="1081" font-size="11.5" fill="#534AB7" opacity="0.8" font-family="Menlo,monospace">SPISlave.cpp:220</text>
+</g>
+<g><rect x="2060" y="1112" width="390" height="74" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/>
+<text x="2074" y="1139" font-size="16" font-weight="600" fill="#3C3489" font-family="Menlo,monospace">SPISlave.setData()</text>
+<text x="2074" y="1162" font-size="13.5" fill="#534AB7">Queue bytes, enable TX IRQ</text>
+<text x="2074" y="1179" font-size="11.5" fill="#534AB7" opacity="0.8" font-family="Menlo,monospace">SPISlave.cpp:211</text>
+</g>
+<g><rect x="2060" y="1210" width="390" height="74" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/>
+<text x="2074" y="1237" font-size="16" font-weight="600" fill="#3C3489" font-family="Menlo,monospace">SPISlave._handleIRQ()</text>
+<text x="2074" y="1260" font-size="13.5" fill="#534AB7">Drain RX -&gt; callback, refill TX</text>
+<text x="2074" y="1277" font-size="11.5" fill="#534AB7" opacity="0.8" font-family="Menlo,monospace">SPISlave.cpp:163</text>
+</g>
+<g><rect x="2560" y="230" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="257" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">Repeating timer (100 us)</text>
+<text x="2574" y="280" font-size="13.5" fill="#5F5E5A">add_repeating_timer_us</text>
+</g>
+<g><rect x="2560" y="426" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="453" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">CDJ-800 panel (SPI master)</text>
+<text x="2574" y="476" font-size="13.5" fill="#5F5E5A">Drives SCK, sends status</text>
+</g>
+<g><rect x="2560" y="622" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="649" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">PIO state machine</text>
+<text x="2574" y="672" font-size="13.5" fill="#5F5E5A">Glitch-filtered SCK, samples GP16</text>
+</g>
+<g><rect x="2560" y="720" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="747" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">PIO IRQ (RX FIFO not empty)</text>
+<text x="2574" y="770" font-size="13.5" fill="#5F5E5A">Fires per received bit</text>
+</g>
+<g><rect x="2560" y="1014" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="1041" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">PL022 SPI0 block</text>
+<text x="2574" y="1064" font-size="13.5" fill="#5F5E5A">Mode-3 slave, CS forced low</text>
+</g>
+<g><rect x="2560" y="1210" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="1237" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">SPI0 IRQ</text>
+<text x="2574" y="1260" font-size="13.5" fill="#5F5E5A">TX FIFO half empty / RX</text>
+</g>
+<g><rect x="2560" y="1112" width="390" height="74" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4"/>
+<text x="2574" y="1139" font-size="16" font-weight="600" fill="#444441" font-family="Menlo,monospace">GP19 -&gt; panel data in</text>
+<text x="2574" y="1162" font-size="13.5" fill="#5F5E5A">Display frame goes out</text>
+</g>
+<path d="M60 1952 L120 1952" stroke="#888780" stroke-width="1.7999999999999998" marker-end="url(#a_call)"/><text x="132" y="1957" font-size="15" fill="#444441">Function call</text>
+<path d="M440 1952 L500 1952" stroke="#BA7517" stroke-width="2.6" stroke-dasharray="8 5" marker-end="url(#a_irq)"/><text x="512" y="1957" font-size="15" fill="#444441">Interrupt / timer fires handler</text>
+<path d="M820 1952 L880 1952" stroke="#5F5E5A" stroke-width="2.2" stroke-dasharray="2 4" marker-end="url(#a_hw)"/><text x="892" y="1957" font-size="15" fill="#444441">Hardware signal / config</text>
+<path d="M1200 1952 L1260 1952" stroke="#1D9E75" stroke-width="2.6" stroke-dasharray="6 3" marker-end="url(#a_data)"/><text x="1272" y="1957" font-size="15" fill="#444441">Data handed over via buffer</text>
+</svg>
