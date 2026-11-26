@@ -13,6 +13,7 @@
 #include <MIDI.h>
 #include "StatusMessage.h"
 #include "PicoTransport.h"
+#include "PanelDisplay.h"
 
 Adafruit_USBD_MIDI usb_midi;
 MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
@@ -99,6 +100,17 @@ static const Light LIGHT_BEAT2  = {12, 0x80};
 static const Light LIGHT_BEAT1  = {12, 0x40};
 static const Light LIGHT_MT     = {12, 0x08};
 static const Light LIGHT_VINYL  = {12, 0x10};
+static const Light LIGHT_WIDE   = {12, 0x04};
+
+// Display: BPM = base BPM scaled by the pitch fader, like a real CDJ.
+// The base BPM is not sent by Mixxx's CDJ-850 mapping, so it is set locally
+// (serial command "bpm <value>") until the host sends it.
+#ifndef DEFAULT_BASE_BPM
+#define DEFAULT_BASE_BPM 128.0f
+#endif
+// Pitch ranges cycled by the TEMPO button, in hundredths of a percent.
+static const int16_t TEMPO_RANGES[] = {600, 1000, 1600, 10000};
+static const uint8_t TEMPO_RANGE_WIDE = 3;
 
 static const char *const BUTTON_NAMES[] = {
     "Cue", "Rev", "CueOut", "CueIn", "Beat8", "Beat4", "Beat2", "Beat1", "Reloop", "Play",
@@ -126,6 +138,14 @@ static StatusMessage last_msg;
 // Local panel feedback so a test shows the TX direction works.
 static bool playing = false, vinyl = false, master_tempo = false;
 static int  jog_ring = 1; // 1..135
+
+static float    base_bpm = DEFAULT_BASE_BPM;
+static uint8_t  tempo_range = 0;        // index into TEMPO_RANGES (starts at +-6 %)
+static int16_t  tempo_hundredths = 0;   // current fader position, -range..+range
+static uint16_t track_number = 1;
+static bool     display_dirty = true;
+static int16_t  shown_tempo = INT16_MIN;
+static int      shown_bpm = -1;
 
 static bool last_play_wire = HIGH, last_cue_wire = HIGH;
 static unsigned long last_wire_poll_ms = 0, last_report_ms = 0;
@@ -193,6 +213,35 @@ static void update_lights(uint32_t buttons) {
     set_light(LIGHT_BEAT1, held(Button::Beat1));
     set_light(LIGHT_VINYL, vinyl);
     set_light(LIGHT_MT, master_tempo);
+    set_light(LIGHT_WIDE, tempo_range == TEMPO_RANGE_WIDE);
+}
+
+// Pitch fader -> tempo deviation in hundredths of a percent for the current
+// range. Raw rises toward "+" when PITCH_INVERT is 1 (see above).
+static int16_t tempo_from_pitch(uint16_t raw) {
+    const long p = constrain((long)raw, (long)PITCH_RAW_MIN, (long)PITCH_RAW_MAX);
+    const long span = (long)PITCH_RAW_MAX - PITCH_RAW_MIN;
+    long pos = (p - PITCH_RAW_MIN) * 2000L / span - 1000L;   // -1000..+1000
+    if (!PITCH_INVERT) pos = -pos;
+    const long range = TEMPO_RANGES[tempo_range];
+    long h = pos * range / 1000L;
+    // Snap the middle to exactly 0.00 % (the fader has no reliable center).
+    if (labs(h) * 100L < range) h = 0;
+    // Same steps as the CDJ-800 shows: 0.02 % at +-6, 0.05 % at +-10/16, 0.5 % wide.
+    const long step = range <= 600 ? 2 : range <= 1600 ? 5 : 50;
+    h = (h >= 0 ? (h + step / 2) : (h - step / 2)) / step * step;
+    return (int16_t)h;
+}
+
+static void refresh_display(void) {
+    const int bpm = (int)(base_bpm * (10000.0f + tempo_hundredths) / 10000.0f + 0.5f);
+    if (!display_dirty && bpm == shown_bpm && tempo_hundredths == shown_tempo) return;
+    display_dirty = false;
+    shown_bpm = bpm;
+    shown_tempo = tempo_hundredths;
+    panel_display::set_bpm((uint16_t)(bpm < 0 ? 0 : bpm));
+    panel_display::set_tempo(tempo_hundredths, tempo_range == TEMPO_RANGE_WIDE, master_tempo);
+    panel_display::set_track(track_number);
 }
 
 static void release_all(void) {
@@ -215,8 +264,17 @@ static void handle_cdj_packet(const StatusMessage &msg) {
         send_note(note_for(btn), down);
         if (down) {
             if (btn == Button::Play) playing = !playing;
+            // CDJ cue: pressing CUE while playing jumps back and pauses.
+            if (btn == Button::Cue) playing = false;
             if (btn == Button::Vinyl) vinyl = !vinyl;
-            if (btn == Button::MasterTempo) master_tempo = !master_tempo;
+            if (btn == Button::MasterTempo) { master_tempo = !master_tempo; display_dirty = true; }
+            if (btn == Button::Tempo) {
+                tempo_range = (uint8_t)((tempo_range + 1) % (sizeof(TEMPO_RANGES) / sizeof(TEMPO_RANGES[0])));
+                display_dirty = true;
+                if (Serial) { Serial.print("TEMPO range +-"); Serial.print(TEMPO_RANGES[tempo_range] / 100); Serial.println(" %"); }
+            }
+            if (btn == Button::TrackSearchFwd && track_number < 999) { track_number++; display_dirty = true; }
+            if (btn == Button::TrackSearchRev && track_number > 1)   { track_number--; display_dirty = true; }
         }
         if (Serial) {
             Serial.print(down ? "DOWN " : "UP   ");
@@ -269,6 +327,9 @@ static void handle_cdj_packet(const StatusMessage &msg) {
         last_pitch_midi = midi_pitch;
         MIDI.sendControlChange(MIDI_CC_TEMPO, (uint8_t)midi_pitch, MIDI_CH);
     }
+
+    tempo_hundredths = tempo_from_pitch(msg.pitch);
+    refresh_display();
 }
 
 static void report(unsigned long now) {
@@ -451,6 +512,21 @@ static void handle_command(char *line) {
         } else {
             Serial.println("bad group/index (group 0..5, index 1..17)");
         }
+    } else if (strncmp(line, "bpm ", 4) == 0) {
+        const float b = (float)atof(line + 4);
+        if (b > 0.0f && b < 400.0f) {
+            base_bpm = b; display_dirty = true; refresh_display();
+            Serial.print("base BPM = "); Serial.println(base_bpm, 1);
+        } else {
+            Serial.println("bpm must be 1..399");
+        }
+    } else if (sscanf(line, "track %u", &v) == 1) {
+        if (v >= 1 && v <= 999) {
+            track_number = (uint16_t)v; display_dirty = true; refresh_display();
+            Serial.print("track = "); Serial.println(track_number);
+        } else {
+            Serial.println("track must be 1..999");
+        }
     } else if (strcmp(line, "dump") == 0) {
         dump_display();
     } else if (strcmp(line, "sweep") == 0) {
@@ -472,7 +548,7 @@ static void handle_command(char *line) {
             Serial.println("SWEEP stopped, display restored");
         }
     } else if (line[0]) {
-        Serial.println("commands: d <group> <index> <hex> | dump | sweep | bits <group> | stop");
+        Serial.println("commands: bpm <value> | track <n> | d <group> <index> <hex> | dump | sweep | bits <group> | stop");
     }
 }
 
@@ -524,6 +600,7 @@ void setup() {
     pico_spi_slave_init();
     set_jog_ring((uint8_t)jog_ring);
     update_lights(0);
+    refresh_display();
 }
 
 void loop() {
