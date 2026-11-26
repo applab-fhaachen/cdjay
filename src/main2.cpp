@@ -4,8 +4,18 @@
  * The Pico replaces the CDJ-800 MAIN board. The front panel is the SPI master
  * and polls us with 20-byte status frames; we answer with display frames.
  *
- * Serial (115200, USB CDC) prints a status line once per second plus every
- * button change, so the first hardware test can be read in a serial monitor.
+ * Libraries used here:
+ *  - Arduino-Pico core: millis(), constrain(), map(), bitRead(), bitWrite(),
+ *    Serial (readStringUntil(), printf()), String
+ *  - Adafruit TinyUSB: USB device + USB-MIDI interface
+ *  - FortySevenEffects MIDI Library: MIDI.sendNoteOn() / sendControlChange()
+ *
+ * Serial (115200) is only used for the "bpm" and "track" commands.
+ * [CHANGED] All debug code (PanelDebug, link statistics, button/status
+ * printing, frame counters) was removed; it is in the git history.
+ *
+ * Change markers: lines tagged [CHANGED] were simplified in the clean-up;
+ * the tag says which library function replaced the hand-written code.
  */
 
 #include <Arduino.h>
@@ -25,52 +35,57 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 // level shifter. It must be driven HIGH before SPI can see anything.
 #define PIN_SHIFTER_VA  15
 
-// Breadboard buttons (GP15 / GP14 to GND). Off by default: GP15 now powers
-// the level shifter, so the buttons cannot be used on the CDJ test board.
-#ifndef ENABLE_BREADBOARD_BUTTONS
-#define ENABLE_BREADBOARD_BUTTONS 0
-#endif
-#define PIN_BTN_PLAY    15
-#define PIN_BTN_CUE     14
+// [CHANGED] The breadboard Play/Cue buttons on GP14/GP15 were removed: they
+// were switched off (GP15 powers the level shifter) and could not be used.
 
+// [CHANGED] The note_for() switch is now a lookup table, indexed by Button.
 // CDJ-850 MIDI layout, matching Mixxx's bundled "Pioneer CDJ-850" mapping
-// (channel 1 = [Channel1]).
-#define MIDI_NOTE_PLAY_PAUSE    0x00  // play
-#define MIDI_NOTE_CUE           0x01  // cue_default
-#define MIDI_NOTE_SEARCH_FWD    0x02  // fwd
-#define MIDI_NOTE_SEARCH_REV    0x03  // back
-#define MIDI_NOTE_TRACK_NEXT    0x04  // [Playlist] SelectNextTrack
-#define MIDI_NOTE_TRACK_PREV    0x05  // [Playlist] SelectPrevTrack
-#define MIDI_NOTE_LOOP_IN       0x06  // loop_in
-#define MIDI_NOTE_LOOP_OUT      0x07  // loop_out
-#define MIDI_NOTE_RELOOP        0x08  // reloop_exit
-#define MIDI_NOTE_DELETE        0x0D  // delete last used hot cue
-#define MIDI_NOTE_MASTER_TEMPO  0x11  // keylock
-#define MIDI_NOTE_HOTCUE_1      0x18  // hotcue 1..4 (on the Beat 1/2/4/8 buttons)
-#define MIDI_NOTE_HOTCUE_2      0x19
-#define MIDI_NOTE_HOTCUE_3      0x1A
-#define MIDI_NOTE_HOTCUE_4      0x1C
-#define MIDI_NOTE_REV           0x21  // reverse toggle
-#define MIDI_NOTE_EJECT         0x2F  // eject
-#define MIDI_NOTE_UNMAPPED_BASE 0x60  // other buttons: 0x60 + Button index (unused by Mixxx)
-#define MIDI_CC_TEMPO           0x1D  // rate
-#define MIDI_NOTE_JOG_TOUCH     0x20  // scratch2_enable (top plate touched in Vinyl mode)
-#define MIDI_CC_JOG             0x30  // jog_wheel (pitch bend), relative around 0x40
-#define MIDI_CC_JOG_SCRATCH     0x10  // jog_scratch, relative around 0x40
+// (channel 1 = [Channel1]). Buttons Mixxx does not use get 0x60 + index.
+static const uint8_t NOTE_FOR[] = {
+    0x01, // Cue            cue_default
+    0x21, // Rev            reverse
+    0x07, // CueOut         loop_out
+    0x06, // CueIn          loop_in
+    0x1C, // Beat8          hotcue 4
+    0x1A, // Beat4          hotcue 3
+    0x19, // Beat2          hotcue 2
+    0x18, // Beat1          hotcue 1
+    0x08, // Reloop         reloop_exit
+    0x00, // Play           play
+    0x02, // SearchFwd      fwd
+    0x03, // SearchRev      back
+    0x04, // TrackSearchFwd [Playlist] SelectNextTrack
+    0x05, // TrackSearchRev [Playlist] SelectPrevTrack
+    0x11, // MasterTempo    keylock
+    0x6F, // Tempo          (unmapped)
+    0x70, // Vinyl          (unmapped)
+    0x2F, // Eject          eject
+    0x72, // QuickReturn    (unmapped)
+    0x73, // FolderFwd      (unmapped)
+    0x74, // FolderRev      (unmapped)
+    0x75, // TimeMode       (unmapped)
+    0x76, // TextMode       (unmapped)
+    0x0D, // Delete         delete last used hot cue
+    0x78, // Memory         (unmapped)
+    0x79, // CallRev        (unmapped)
+    0x7A, // CallFwd        (unmapped)
+};
+static_assert(sizeof(NOTE_FOR) == (size_t)Button::Count, "one note per button");
 
-// Raw pitch endpoints. The real fader range is not known yet: read
-// "pitch=" in the serial log at both ends of the fader and put them here.
+#define MIDI_NOTE_JOG_TOUCH  0x20  // scratch2_enable (top plate touched in Vinyl mode)
+#define MIDI_CC_TEMPO        0x1D  // rate
+#define MIDI_CC_JOG          0x30  // jog_wheel (pitch bend), relative around 0x40
+#define MIDI_CC_JOG_SCRATCH  0x10  // jog_scratch, relative around 0x40
+
+// Raw pitch fader endpoints, measured on the CDJ-800 panel, 2026-11-18.
 #ifndef PITCH_RAW_MIN
-#define PITCH_RAW_MIN 4388   // measured on the CDJ-800 panel, 2026-11-18
+#define PITCH_RAW_MIN 4388
 #endif
 #ifndef PITCH_RAW_MAX
-#define PITCH_RAW_MAX 65472  // measured on the CDJ-800 panel, 2026-11-18
+#define PITCH_RAW_MAX 65472
 #endif
-
-// Direction of the analog controls. Mixxx's "Pioneer CDJ-850" mapping
-// inverts CC 0x1D, so the CC value must fall as the fader moves toward "+".
-// The CDJ-800 raw pitch value runs the other way, so it is flipped here.
-// Set to 0 (e.g. -DPITCH_INVERT=0) if the fader ends up backwards again.
+// Mixxx's CDJ-850 mapping inverts CC 0x1D, so the CC value must fall as the
+// fader moves toward "+". The raw value runs the other way, so it is flipped.
 #ifndef PITCH_INVERT
 #define PITCH_INVERT 1
 #endif
@@ -78,89 +93,64 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 #ifndef JOG_INVERT
 #define JOG_INVERT 0
 #endif
-
+// Vinyl mode: how long after the last jog movement scratch stays on.
+#ifndef JOG_RELEASE_MS
+#define JOG_RELEASE_MS 80
+#endif
 // No valid frame for this long -> panel considered offline, notes released.
 #define PANEL_TIMEOUT_MS 500
 
-// Display group 5 indicator bits (byte 12 / byte 13) and the jog ring byte.
-#define DISP_GROUP_LIGHTS 5
-#define DISP_IDX_LIGHTS_A 12
-#define DISP_IDX_LIGHTS_B 13
-#define DISP_IDX_JOG      17
-
-struct Light { uint8_t index, mask; };
-static const Light LIGHT_PLAY   = {13, 0x20};
-static const Light LIGHT_CUE    = {13, 0x10};
-static const Light LIGHT_REV    = {13, 0x08};
-static const Light LIGHT_CUEIN  = {13, 0x04};
-static const Light LIGHT_CUEOUT = {13, 0x40};
-static const Light LIGHT_BEAT8  = {13, 0x02};
-static const Light LIGHT_BEAT4  = {13, 0x01};
-static const Light LIGHT_BEAT2  = {12, 0x80};
-static const Light LIGHT_BEAT1  = {12, 0x40};
-static const Light LIGHT_MT     = {12, 0x08};
-static const Light LIGHT_VINYL  = {12, 0x10};
-static const Light LIGHT_WIDE   = {12, 0x04};
-
-// Display: BPM = base BPM scaled by the pitch fader, like a real CDJ.
-// The base BPM is not sent by Mixxx's CDJ-850 mapping, so it is set locally
-// (serial command "bpm <value>") until the host sends it.
+// Display: BPM = base BPM scaled by the pitch fader, like a real CDJ. Mixxx's
+// CDJ-850 mapping does not send the BPM, so it is set by the "bpm" command.
 #ifndef DEFAULT_BASE_BPM
 #define DEFAULT_BASE_BPM 128.0f
 #endif
 // Pitch ranges cycled by the TEMPO button, in hundredths of a percent.
-static const int16_t TEMPO_RANGES[] = {600, 1000, 1600, 10000};
+static const long    TEMPO_RANGES[] = {600, 1000, 1600, 10000};
+static const uint8_t TEMPO_RANGE_COUNT = 4;
 static const uint8_t TEMPO_RANGE_WIDE = 3;
 
-static const char *const BUTTON_NAMES[] = {
-    "Cue", "Rev", "CueOut", "CueIn", "Beat8", "Beat4", "Beat2", "Beat1", "Reloop", "Play",
-    "SearchFwd", "SearchRev", "TrackSearchFwd", "TrackSearchRev", "MasterTempo",
-    "Tempo", "Vinyl", "Eject", "QuickReturn", "FolderFwd", "FolderRev", "TimeMode",
-    "TextMode", "Delete", "Memory", "CallRev", "CallFwd"
+// Indicator lights: display group 5, byte 12 / 13.
+// [CHANGED] Stored as bit numbers instead of masks, so Arduino's bitWrite()
+// can switch them.
+#define DISP_GROUP_LIGHTS 5
+#define DISP_IDX_JOG      17
+struct Light { uint8_t index, bit; };
+static const Light LIGHT_PLAY  = {13, 5};
+static const Light LIGHT_VINYL = {12, 4};
+static const Light LIGHT_MT    = {12, 3};
+static const Light LIGHT_WIDE  = {12, 2};
+// Lights that are on while their button is held.
+struct HeldLight { Button button; Light light; };
+static const HeldLight HELD_LIGHTS[] = {
+    {Button::Cue,    {13, 4}}, {Button::Rev,   {13, 3}},
+    {Button::CueIn,  {13, 2}}, {Button::CueOut, {13, 6}},
+    {Button::Beat8,  {13, 1}}, {Button::Beat4, {13, 0}},
+    {Button::Beat2,  {12, 7}}, {Button::Beat1, {12, 6}},
 };
 
+// --- state -----------------------------------------------------------------
 static uint32_t last_buttons = 0;
 static uint16_t last_jog_pulse = 0;
 static int      last_pitch_midi = -1;
 static bool     panel_online = false;
 static bool     jog_touched = false;   // scratch active (Vinyl on + jog moving)
-static unsigned long last_jog_move_ms = 0;
+static unsigned long last_jog_move_ms = 0, last_frame_ms = 0;
 
-// Vinyl mode: how long after the last jog movement scratch stays on.
-#ifndef JOG_RELEASE_MS
-#define JOG_RELEASE_MS 80
-#endif
-static unsigned long last_frame_ms = 0;
-static uint32_t valid_frames = 0, bad_frames = 0;
-static uint8_t  last_frame[BUFFER_LENGTH];
-static StatusMessage last_msg;
-
-// Local panel feedback so a test shows the TX direction works.
-static bool playing = false, vinyl = false, master_tempo = false;
-static int  jog_ring = 1; // 1..135
-
+static bool     playing = false, vinyl = false, master_tempo = false;
+static int      jog_ring = 1;           // 1..135
 static float    base_bpm = DEFAULT_BASE_BPM;
 static uint8_t  tempo_range = 0;        // index into TEMPO_RANGES (starts at +-6 %)
-static int16_t  tempo_hundredths = 0;   // current fader position, -range..+range
+static int16_t  tempo_hundredths = 0;
 static uint16_t track_number = 1;
 static bool     display_dirty = true;
 static int16_t  shown_tempo = INT16_MIN;
 static int      shown_bpm = -1;
 
-static bool last_play_wire = HIGH, last_cue_wire = HIGH;
-static unsigned long last_wire_poll_ms = 0, last_report_ms = 0;
-
-static void print_hex(const uint8_t *data, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        if (data[i] < 0x10) Serial.print('0');
-        Serial.print(data[i], HEX);
-        Serial.print(' ');
-    }
-}
-
+// --- panel output ------------------------------------------------------------
 static void set_light(const Light &l, bool on) {
     uint8_t v = pico_spi_slave_get_display_byte(DISP_GROUP_LIGHTS, l.index);
-    v = on ? (v | l.mask) : (v & ~l.mask);
+    bitWrite(v, l.bit, on);  // [CHANGED] Arduino bitWrite() instead of |= mask / &= ~mask
     pico_spi_slave_set_display_byte(DISP_GROUP_LIGHTS, l.index, v);
 }
 
@@ -169,150 +159,107 @@ static void set_jog_ring(uint8_t pos) {
         pico_spi_slave_set_display_byte(g, DISP_IDX_JOG, pos);
 }
 
-static uint8_t note_for(Button b) {
-    switch (b) {
-        case Button::Play:           return MIDI_NOTE_PLAY_PAUSE;
-        case Button::Cue:            return MIDI_NOTE_CUE;
-        case Button::Rev:            return MIDI_NOTE_REV;
-        case Button::SearchFwd:      return MIDI_NOTE_SEARCH_FWD;
-        case Button::SearchRev:      return MIDI_NOTE_SEARCH_REV;
-        case Button::CueIn:          return MIDI_NOTE_LOOP_IN;
-        case Button::CueOut:         return MIDI_NOTE_LOOP_OUT;
-        case Button::Reloop:         return MIDI_NOTE_RELOOP;
-        case Button::TrackSearchRev: return MIDI_NOTE_TRACK_PREV;
-        case Button::TrackSearchFwd: return MIDI_NOTE_TRACK_NEXT;
-        case Button::MasterTempo:    return MIDI_NOTE_MASTER_TEMPO;
-        case Button::Delete:         return MIDI_NOTE_DELETE;
-        case Button::Eject:          return MIDI_NOTE_EJECT;
-        case Button::Beat1:          return MIDI_NOTE_HOTCUE_1;
-        case Button::Beat2:          return MIDI_NOTE_HOTCUE_2;
-        case Button::Beat4:          return MIDI_NOTE_HOTCUE_3;
-        case Button::Beat8:          return MIDI_NOTE_HOTCUE_4;
-        default: return MIDI_NOTE_UNMAPPED_BASE + static_cast<uint8_t>(b);
-    }
-}
-
-// Release is Note On with velocity 0, like the real CDJ-850. Mixxx's
-// "Pioneer CDJ-850" mapping only binds status 0x90; a real Note Off (0x80)
-// is ignored, so Cue stayed "held" (track stuck at the cue point, Play
-// dead) and Search / hot cues / scratch never released.
-static void send_note(uint8_t note, bool down) {
-    MIDI.sendNoteOn(note, down ? 127 : 0, MIDI_CH);
-}
-
 static void update_lights(uint32_t buttons) {
-    auto held = [buttons](Button b) { return (buttons & (1UL << static_cast<uint8_t>(b))) != 0; };
+    // [CHANGED] One loop over HELD_LIGHTS + Arduino bitRead() replaces eight
+    // separate set_light() calls and the held() lambda.
+    for (const HeldLight &h : HELD_LIGHTS)
+        set_light(h.light, bitRead(buttons, (uint8_t)h.button));
     set_light(LIGHT_PLAY, playing);
-    set_light(LIGHT_CUE, held(Button::Cue));
-    set_light(LIGHT_REV, held(Button::Rev));
-    set_light(LIGHT_CUEIN, held(Button::CueIn));
-    set_light(LIGHT_CUEOUT, held(Button::CueOut));
-    set_light(LIGHT_BEAT8, held(Button::Beat8));
-    set_light(LIGHT_BEAT4, held(Button::Beat4));
-    set_light(LIGHT_BEAT2, held(Button::Beat2));
-    set_light(LIGHT_BEAT1, held(Button::Beat1));
     set_light(LIGHT_VINYL, vinyl);
     set_light(LIGHT_MT, master_tempo);
     set_light(LIGHT_WIDE, tempo_range == TEMPO_RANGE_WIDE);
 }
 
-// Pitch fader -> tempo deviation in hundredths of a percent for the current
-// range. Raw rises toward "+" when PITCH_INVERT is 1 (see above).
+// Pitch fader -> tempo deviation in hundredths of a percent for the current range.
 static int16_t tempo_from_pitch(uint16_t raw) {
-    const long p = constrain((long)raw, (long)PITCH_RAW_MIN, (long)PITCH_RAW_MAX);
-    const long span = (long)PITCH_RAW_MAX - PITCH_RAW_MIN;
-    long pos = (p - PITCH_RAW_MIN) * 2000L / span - 1000L;   // -1000..+1000
-    if (!PITCH_INVERT) pos = -pos;
     const long range = TEMPO_RANGES[tempo_range];
-    long h = pos * range / 1000L;
-    // Snap the middle to exactly 0.00 % (the fader has no reliable center).
-    if (labs(h) * 100L < range) h = 0;
+    // [CHANGED] Arduino constrain() + map() replace the manual scaling.
+    const long p = constrain((long)raw, (long)PITCH_RAW_MIN, (long)PITCH_RAW_MAX);
+    long h = PITCH_INVERT ? map(p, PITCH_RAW_MIN, PITCH_RAW_MAX, -range, range)
+                          : map(p, PITCH_RAW_MIN, PITCH_RAW_MAX, range, -range);
+    if (labs(h) * 100L < range) h = 0;  // snap the middle to exactly 0.00 %
     // Same steps as the CDJ-800 shows: 0.02 % at +-6, 0.05 % at +-10/16, 0.5 % wide.
     const long step = range <= 600 ? 2 : range <= 1600 ? 5 : 50;
-    h = (h >= 0 ? (h + step / 2) : (h - step / 2)) / step * step;
-    return (int16_t)h;
+    return (int16_t)(lroundf((float)h / step) * step);  // [CHANGED] lroundf() instead of manual rounding
 }
 
 static void refresh_display(void) {
-    const int bpm = (int)(base_bpm * (10000.0f + tempo_hundredths) / 10000.0f + 0.5f);
+    const int bpm = (int)lroundf(base_bpm * (10000.0f + tempo_hundredths) / 10000.0f);
     if (!display_dirty && bpm == shown_bpm && tempo_hundredths == shown_tempo) return;
     display_dirty = false;
     shown_bpm = bpm;
     shown_tempo = tempo_hundredths;
-    panel_display::set_bpm((uint16_t)(bpm < 0 ? 0 : bpm));
+    panel_display::set_bpm((uint16_t)max(bpm, 0));
     panel_display::set_tempo(tempo_hundredths, tempo_range == TEMPO_RANGE_WIDE, master_tempo);
     panel_display::set_track(track_number);
 }
 
+// --- MIDI ------------------------------------------------------------------------
+// Release is Note On with velocity 0, like the real CDJ-850. Mixxx's
+// "Pioneer CDJ-850" mapping only binds status 0x90; a real Note Off (0x80)
+// is ignored, so Cue stayed "held" and Search / hot cues never released.
+static void send_note(uint8_t note, bool down) {
+    MIDI.sendNoteOn(note, down ? 127 : 0, MIDI_CH);
+}
+
 static void release_all(void) {
-    for (uint8_t i = 0; i < static_cast<uint8_t>(Button::Count); ++i)
-        if (last_buttons & (1UL << i)) send_note(note_for(static_cast<Button>(i)), false);
+    for (uint8_t i = 0; i < (uint8_t)Button::Count; ++i)
+        if (bitRead(last_buttons, i)) send_note(NOTE_FOR[i], false);  // [CHANGED] bitRead()
     last_buttons = 0;
     if (jog_touched) send_note(MIDI_NOTE_JOG_TOUCH, false);
     jog_touched = false;
     update_lights(0);
 }
 
+static void on_button_down(Button btn) {
+    switch (btn) {
+        case Button::Play:  playing = !playing; break;
+        case Button::Cue:   playing = false; break;  // CDJ cue: jump back and pause
+        case Button::Vinyl: vinyl = !vinyl; break;
+        case Button::MasterTempo: master_tempo = !master_tempo; display_dirty = true; break;
+        case Button::Tempo:
+            tempo_range = (tempo_range + 1) % TEMPO_RANGE_COUNT;
+            display_dirty = true;
+            break;
+        case Button::TrackSearchFwd: if (track_number < 999) { track_number++; display_dirty = true; } break;
+        case Button::TrackSearchRev: if (track_number > 1)   { track_number--; display_dirty = true; } break;
+        default: break;
+    }
+}
+
 static void handle_cdj_packet(const StatusMessage &msg) {
     const uint32_t buttons = msg.buttons();
     const uint32_t changed = buttons ^ last_buttons;
 
-    for (uint8_t i = 0; i < static_cast<uint8_t>(Button::Count); ++i) {
-        if (!(changed & (1UL << i))) continue;
-        const Button btn = static_cast<Button>(i);
-        const bool down = (buttons & (1UL << i)) != 0;
-        send_note(note_for(btn), down);
-        if (down) {
-            if (btn == Button::Play) playing = !playing;
-            // CDJ cue: pressing CUE while playing jumps back and pauses.
-            if (btn == Button::Cue) playing = false;
-            if (btn == Button::Vinyl) vinyl = !vinyl;
-            if (btn == Button::MasterTempo) { master_tempo = !master_tempo; display_dirty = true; }
-            if (btn == Button::Tempo) {
-                tempo_range = (uint8_t)((tempo_range + 1) % (sizeof(TEMPO_RANGES) / sizeof(TEMPO_RANGES[0])));
-                display_dirty = true;
-                if (Serial) { Serial.print("TEMPO range +-"); Serial.print(TEMPO_RANGES[tempo_range] / 100); Serial.println(" %"); }
-            }
-            if (btn == Button::TrackSearchFwd && track_number < 999) { track_number++; display_dirty = true; }
-            if (btn == Button::TrackSearchRev && track_number > 1)   { track_number--; display_dirty = true; }
-        }
-        if (Serial) {
-            Serial.print(down ? "DOWN " : "UP   ");
-            Serial.print(BUTTON_NAMES[i]);
-            Serial.print("   raw: ");
-            print_hex(msg.raw, BUFFER_LENGTH);
-            Serial.println();
-        }
+    for (uint8_t i = 0; i < (uint8_t)Button::Count; ++i) {
+        if (!bitRead(changed, i)) continue;               // [CHANGED] bitRead()
+        const bool down = bitRead(buttons, i);
+        send_note(NOTE_FOR[i], down);
+        if (down) on_button_down((Button)i);
     }
     if (changed) update_lights(buttons);
     last_buttons = buttons;
 
-    // Jog: the counter wraps at 16 bit; the signed cast handles that. The
-    // first frame after (re)connect only sets the reference.
-    const int16_t delta = static_cast<int16_t>(msg.jogPulse - last_jog_pulse);
+    // Jog: the counter wraps at 16 bit; the signed cast handles that.
+    const int16_t delta = (int16_t)(msg.jogPulse - last_jog_pulse);
     last_jog_pulse = msg.jogPulse;
 
-    // Jog has two functions, switched by the Vinyl button:
-    //  - Vinyl ON  -> scratch: while the jog turns, Note 0x20 (scratch2_enable)
-    //    is held and the movement goes out on CC 0x10. JOG_RELEASE_MS after
-    //    the jog stops, the note is released and normal playback resumes.
-    //  - Vinyl OFF -> pitch bend / nudge on CC 0x30, never scratch.
-    // The touch sensor in the plate is not decoded yet, so jog movement
-    // stands in for "hand on the plate".
+    // Vinyl ON  -> scratch: Note 0x20 held while the jog turns, movement on CC 0x10.
+    // Vinyl OFF -> pitch bend / nudge on CC 0x30. The touch sensor is not
+    // decoded yet, so jog movement stands in for "hand on the plate".
     const unsigned long now = millis();
     if (panel_online && delta != 0) last_jog_move_ms = now;
     const bool touched = vinyl && last_jog_move_ms != 0 && now - last_jog_move_ms < JOG_RELEASE_MS;
     if (touched != jog_touched) {
         jog_touched = touched;
         send_note(MIDI_NOTE_JOG_TOUCH, touched);
-        if (Serial) Serial.println(touched ? "JOG scratch on" : "JOG scratch off");
     }
 
     if (panel_online && delta != 0) {
         const uint8_t cc = jog_touched ? MIDI_CC_JOG_SCRATCH : MIDI_CC_JOG;
         int remaining = JOG_INVERT ? -delta : delta;
         while (remaining != 0) {   // relative CC: 64 = no move, 65..127 fwd, 1..63 rev
-            int step = constrain(remaining, -63, 63);
+            const int step = constrain(remaining, -63, 63);
             MIDI.sendControlChange(cc, (uint8_t)(64 + step), MIDI_CH);
             remaining -= step;
         }
@@ -320,9 +267,10 @@ static void handle_cdj_packet(const StatusMessage &msg) {
         set_jog_ring((uint8_t)jog_ring);
     }
 
-    long p = constrain((long)msg.pitch, (long)PITCH_RAW_MIN, (long)PITCH_RAW_MAX);
-    int midi_pitch = (int)((p - PITCH_RAW_MIN) * 127L / ((long)PITCH_RAW_MAX - PITCH_RAW_MIN));
-    if (PITCH_INVERT) midi_pitch = 127 - midi_pitch;
+    // [CHANGED] Arduino constrain() + map() replace the manual pitch scaling.
+    const long p = constrain((long)msg.pitch, (long)PITCH_RAW_MIN, (long)PITCH_RAW_MAX);
+    const int midi_pitch = PITCH_INVERT ? map(p, PITCH_RAW_MIN, PITCH_RAW_MAX, 127, 0)
+                                        : map(p, PITCH_RAW_MIN, PITCH_RAW_MAX, 0, 127);
     if (midi_pitch != last_pitch_midi) {
         last_pitch_midi = midi_pitch;
         MIDI.sendControlChange(MIDI_CC_TEMPO, (uint8_t)midi_pitch, MIDI_CH);
@@ -332,237 +280,32 @@ static void handle_cdj_packet(const StatusMessage &msg) {
     refresh_display();
 }
 
-static void report(unsigned long now) {
-    PicoSpiStats s;
-    pico_spi_slave_get_stats(&s);
-    Serial.print(panel_online ? "[panel ONLINE] " : "[panel offline] ");
-    Serial.print("frames="); Serial.print(s.frames);
-    Serial.print(" valid="); Serial.print(valid_frames);
-    Serial.print(" badcrc="); Serial.print(bad_frames);
-    Serial.print(" short="); Serial.print(s.short_frames);
-    Serial.print(" long="); Serial.print(s.long_frames);
-    Serial.print(" overrun="); Serial.print(s.overruns);
-    // Wiring check: level + number of toggles seen while polling for 5 ms.
-    static const uint8_t pins[4] = {PICO_SPI_PIN_RX, PICO_SPI_PIN_CS, PICO_SPI_PIN_SCK, PICO_SPI_PIN_TX};
-    static const char *const names[4] = {"RX16", "CS17", "SCK18", "TX19"};
-    uint32_t toggles[4] = {0, 0, 0, 0};
-    bool prev[4];
-    for (int i = 0; i < 4; ++i) prev[i] = gpio_get(pins[i]);
-    const uint32_t t0 = micros();
-    while (micros() - t0 < 5000) {
-        for (int i = 0; i < 4; ++i) {
-            bool v = gpio_get(pins[i]);
-            if (v != prev[i]) { toggles[i]++; prev[i] = v; }
-        }
-    }
-    Serial.print(" | pins");
-    for (int i = 0; i < 4; ++i) {
-        Serial.print(' '); Serial.print(names[i]); Serial.print('=');
-        Serial.print(prev[i] ? 'H' : 'L'); Serial.print('/'); Serial.print(toggles[i]);
-    }
-    if (valid_frames) {
-        Serial.print(" | pitch="); Serial.print(last_msg.pitch);
-        Serial.print(" ref="); Serial.print(last_msg.pitchReference);
-        Serial.print(" jog="); Serial.print(last_msg.jogPulse);
-        Serial.print(" jogspd="); Serial.print(last_msg.jogSpeed);
-        Serial.print(" jogflags=0x"); Serial.print(last_msg.jogFlags, HEX);
-        Serial.print(" touch="); Serial.print(last_msg.touch);
-    }
-    if (s.frames) {
-        Serial.print(" | last: ");
-        print_hex(last_frame, BUFFER_LENGTH);
-    }
-    Serial.println();
-    Serial.print("  bytes/frame histogram:");
-    for (int i = 0; i < 22; ++i) {
-        if (!s.len_hist[i]) continue;
-        Serial.print(' ');
-        if (i == 21) Serial.print(">20"); else Serial.print(i);
-        Serial.print('x'); Serial.print(s.len_hist[i]);
-    }
-    Serial.print("   bit-offset histogram:");
-    for (int i = 0; i < 9; ++i) {
-        if (!s.off_hist[i]) continue;
-        Serial.print(' ');
-        if (i == 8) Serial.print("none"); else Serial.print(i);
-        Serial.print('x'); Serial.print(s.off_hist[i]);
-    }
-    Serial.println();
-    PicoSelLog log[SEL_LOG_LEN];
-    const uint8_t n = pico_spi_slave_get_sel_log(log);
-    Serial.print("  last bursts (bits/pre/offset/gapUs/maxGapUs@bit):");
-    for (uint8_t i = 0; i < n; ++i) {
-        Serial.print(' '); Serial.print(log[i].bits);
-        Serial.print('/'); Serial.print(log[i].pre);
-        Serial.print('/'); Serial.print(log[i].offset);
-        Serial.print('/'); Serial.print(log[i].gap_us);
-        Serial.print('/'); Serial.print(log[i].maxgap_us);
-        Serial.print('@'); Serial.print(log[i].maxgap_at);
-    }
-    Serial.println();
-    (void)now;
-}
-
-// ---------------------------------------------------------------------------
-// Jog-touch diagnostics. Nobody has decoded the touch sensor yet, and the
-// panel may only report it after the main board enables Vinyl mode in a
-// display frame. Two tools for finding out on the hardware:
-//  1. Status watcher: prints every change of the status bytes that are not
-//     buttons, pitch or jog counter (bytes 2, 3, 12, 13; the rotation bits
-//     0xC0 of byte 12 are ignored so turning the jog does not spam).
-//  2. Serial commands (type in the serial monitor, end with Enter):
-//       d <group> <index> <hex>   set display byte, e.g. "d 5 12 10"
-//       dump                      print all six display groups
-//       sweep                     set each display byte (group 0..5,
-//                                 byte 1..16) to FF for 0.5 s, one after
-//                                 the other, then restore. Hold the plate
-//                                 pressed while it runs and watch for
-//                                 "STATUS" lines.
-// ---------------------------------------------------------------------------
-static const uint8_t WATCH_BYTES[] = {2, 3, 12, 13};
-static uint8_t watch_prev[sizeof(WATCH_BYTES)];
-static bool    watch_init = false;
-
-static void watch_status(const uint8_t *raw) {
-    for (size_t i = 0; i < sizeof(WATCH_BYTES); ++i) {
-        const uint8_t b = WATCH_BYTES[i];
-        // Byte 3 bits 0x03 toggle on their own (heartbeat). Byte 12 bits
-        // 0xF0 follow jog rotation: 0x80 moving, 0x40 direction, 0x30 the
-        // encoder phases (Gray code). Both would drown real changes.
-        const uint8_t ignore = (b == 12) ? 0xF0 : (b == 3) ? 0x03 : 0x00;
-        const uint8_t v = raw[b];
-        if (watch_init && ((v ^ watch_prev[i]) & ~ignore) && Serial) {
-            Serial.print("STATUS byte "); Serial.print(b);
-            Serial.print(": "); if (watch_prev[i] < 0x10) Serial.print('0'); Serial.print(watch_prev[i], HEX);
-            Serial.print(" -> "); if (v < 0x10) Serial.print('0'); Serial.print(v, HEX);
-            Serial.print("   (vinyl="); Serial.print(vinyl ? "on" : "off");
-            Serial.println(")");
-        }
-        watch_prev[i] = v;
-    }
-    watch_init = true;
-}
-
-// Two sweep modes:
-//  sweep          all groups, whole byte = FF, 0.5 s each (touch search)
-//  bits <group>   one group, one bit at a time, 1.5 s each (find which
-//                 bit lights which VFD segment, e.g. the VINYL symbol)
-static bool     sweep_on = false, sweep_bits = false;
-static uint8_t  sweep_group = 0, sweep_index = 1, sweep_bit = 0, sweep_saved = 0;
-static unsigned long sweep_ms = 0;
-
-static void sweep_apply(void) {
-    sweep_saved = pico_spi_slave_get_display_byte(sweep_group, sweep_index);
-    const uint8_t v = sweep_bits ? (uint8_t)(sweep_saved | (1u << sweep_bit)) : 0xFF;
-    pico_spi_slave_set_display_byte(sweep_group, sweep_index, v);
-    Serial.print(sweep_bits ? "BITS" : "SWEEP");
-    Serial.print(" group "); Serial.print(sweep_group);
-    Serial.print(" byte "); Serial.print(sweep_index);
-    if (sweep_bits) {
-        Serial.print(" bit 0x");
-        if ((1u << sweep_bit) < 0x10) Serial.print('0');
-        Serial.print(1u << sweep_bit, HEX);
-        Serial.print("   -> d "); Serial.print(sweep_group); Serial.print(' ');
-        Serial.print(sweep_index); Serial.print(' '); Serial.println(v, HEX);
-    } else {
-        Serial.println(" = FF");
-    }
-}
-
-static void sweep_step(unsigned long now) {
-    if (!sweep_on || now - sweep_ms < (sweep_bits ? 1500u : 500u)) return;
-    sweep_ms = now;
-    pico_spi_slave_set_display_byte(sweep_group, sweep_index, sweep_saved);
-    bool next_byte = true;
-    if (sweep_bits && ++sweep_bit < 8) next_byte = false;
-    if (next_byte) {
-        sweep_bit = 0;
-        // Byte 17 (jog ring) is skipped: it is a position, not segments.
-        if (++sweep_index > 16) {
-            sweep_index = 1;
-            if (sweep_bits) sweep_group = DISPLAY_GROUPS; else ++sweep_group;
-        }
-    }
-    if (sweep_group >= DISPLAY_GROUPS) {
-        sweep_on = false;
-        Serial.println("SWEEP done, display restored");
-        return;
-    }
-    sweep_apply();
-}
-
-static void dump_display(void) {
-    for (uint8_t g = 0; g < DISPLAY_GROUPS; ++g) {
-        Serial.print("group "); Serial.print(g); Serial.print(": ");
-        for (uint8_t i = 1; i <= 17; ++i) {
-            const uint8_t v = pico_spi_slave_get_display_byte(g, i);
-            if (v < 0x10) Serial.print('0');
-            Serial.print(v, HEX); Serial.print(' ');
-        }
-        Serial.println();
-    }
-}
-
-static void handle_command(char *line) {
-    unsigned g, i, v;
-    if (sscanf(line, "d %u %u %x", &g, &i, &v) == 3) {
-        if (pico_spi_slave_set_display_byte((uint8_t)g, (uint8_t)i, (uint8_t)v)) {
-            Serial.print("display group "); Serial.print(g); Serial.print(" byte "); Serial.print(i);
-            Serial.print(" = "); Serial.println(v, HEX);
-        } else {
-            Serial.println("bad group/index (group 0..5, index 1..17)");
-        }
-    } else if (strncmp(line, "bpm ", 4) == 0) {
-        const float b = (float)atof(line + 4);
+// --- serial commands ---------------------------------------------------------------
+// [CHANGED] Serial.readStringUntil() + String methods (trim, startsWith,
+// substring, toFloat, toInt) replace the hand-written character buffer and
+// sscanf() parsing.
+static void poll_serial(void) {
+    if (!Serial.available()) return;
+    String line = Serial.readStringUntil('\n');
+    line.trim();
+    if (line.startsWith("bpm ")) {
+        const float b = line.substring(4).toFloat();
         if (b > 0.0f && b < 400.0f) {
             base_bpm = b; display_dirty = true; refresh_display();
-            Serial.print("base BPM = "); Serial.println(base_bpm, 1);
+            Serial.printf("base BPM = %.1f\n", base_bpm);
         } else {
             Serial.println("bpm must be 1..399");
         }
-    } else if (sscanf(line, "track %u", &v) == 1) {
-        if (v >= 1 && v <= 999) {
-            track_number = (uint16_t)v; display_dirty = true; refresh_display();
-            Serial.print("track = "); Serial.println(track_number);
+    } else if (line.startsWith("track ")) {
+        const long t = line.substring(6).toInt();
+        if (t >= 1 && t <= 999) {
+            track_number = (uint16_t)t; display_dirty = true; refresh_display();
+            Serial.printf("track = %u\n", track_number);
         } else {
             Serial.println("track must be 1..999");
         }
-    } else if (strcmp(line, "dump") == 0) {
-        dump_display();
-    } else if (strcmp(line, "sweep") == 0) {
-        if (!sweep_on) {
-            sweep_on = true; sweep_bits = false; sweep_group = 0; sweep_index = 1;
-            sweep_bit = 0; sweep_ms = millis();
-            sweep_apply();
-        }
-    } else if (sscanf(line, "bits %u", &g) == 1 && g < DISPLAY_GROUPS) {
-        if (!sweep_on) {
-            sweep_on = true; sweep_bits = true; sweep_group = (uint8_t)g; sweep_index = 1;
-            sweep_bit = 0; sweep_ms = millis();
-            sweep_apply();
-        }
-    } else if (strcmp(line, "stop") == 0) {
-        if (sweep_on) {
-            pico_spi_slave_set_display_byte(sweep_group, sweep_index, sweep_saved);
-            sweep_on = false;
-            Serial.println("SWEEP stopped, display restored");
-        }
-    } else if (line[0]) {
-        Serial.println("commands: bpm <value> | track <n> | d <group> <index> <hex> | dump | sweep | bits <group> | stop");
-    }
-}
-
-static void poll_serial(void) {
-    static char buf[40];
-    static uint8_t len = 0;
-    while (Serial.available()) {
-        const char c = (char)Serial.read();
-        if (c == '\r' || c == '\n') {
-            buf[len] = 0; len = 0;
-            handle_command(buf);
-        } else if (len < sizeof(buf) - 1) {
-            buf[len++] = c;
-        }
+    } else if (line.length()) {
+        Serial.println("commands: bpm <value> | track <n>");
     }
 }
 
@@ -571,13 +314,7 @@ void setup() {
     pinMode(PIN_SHIFTER_VA, OUTPUT);
     digitalWrite(PIN_SHIFTER_VA, HIGH);
     delay(10);
-
     pinMode(PIN_STATUS_LED, OUTPUT);
-    digitalWrite(PIN_STATUS_LED, LOW);
-#if ENABLE_BREADBOARD_BUTTONS
-    pinMode(PIN_BTN_PLAY, INPUT_PULLUP);
-    pinMode(PIN_BTN_CUE, INPUT_PULLUP);
-#endif
 
     if (!TinyUSBDevice.isInitialized()) TinyUSBDevice.begin(0);
     TinyUSBDevice.setManufacturerDescriptor("Pioneer DJ");
@@ -585,14 +322,12 @@ void setup() {
     usb_midi.setStringDescriptor("PIONEER CDJ-850 MIDI");
     MIDI.begin(MIDI_CHANNEL_OMNI);
     Serial.begin(115200);
+    Serial.setTimeout(50);  // readStringUntil() gives up after 50 ms without '\n'
 
-    // The core starts USB (serial only) before setup(), so the host may
-    // already have enumerated - or, behind a slow hub, be in the middle of
-    // enumerating - the old descriptor. Always disconnect long enough for
-    // a hub to notice (its debounce is ~100 ms), then reconnect so the host
-    // reads the full descriptor with MIDI and the CDJ-850 name. A short or
-    // conditional reconnect left the device as "Unnamed Device" with no
-    // serial port behind a USB 2.0 hub.
+    // The core starts USB (serial only) before setup(), so the host may have
+    // enumerated the old descriptor. Disconnect long enough for a hub to
+    // notice (~100 ms debounce), then reconnect so the host reads the full
+    // descriptor with MIDI and the CDJ-850 name.
     TinyUSBDevice.detach();
     delay(300);
     TinyUSBDevice.attach();
@@ -608,56 +343,22 @@ void loop() {
     TinyUSBDevice.task();
 #endif
     MIDI.read();
-
     const unsigned long now = millis();
 
     uint8_t frame[BUFFER_LENGTH];
-    if (pico_spi_slave_read_frame(frame)) {
-        memcpy(last_frame, frame, BUFFER_LENGTH);
-        if (StatusMessage::isValid(frame)) {
-            const StatusMessage msg = StatusMessage::createMessage(frame);
-            watch_status(frame);
-            handle_cdj_packet(msg);
-            last_msg = msg;
-            valid_frames++;
-            last_frame_ms = now;
-            if (!panel_online && Serial) Serial.println("panel connected");
-            panel_online = true;
-        } else {
-            bad_frames++;
-        }
+    if (pico_spi_slave_read_frame(frame)) {  // [CHANGED] only valid frames arrive here
+        handle_cdj_packet(StatusMessage::createMessage(frame));
+        last_frame_ms = now;
+        panel_online = true;
     }
 
     if (panel_online && now - last_frame_ms > PANEL_TIMEOUT_MS) {
         panel_online = false;
         release_all();
-        if (Serial) Serial.println("panel timeout: all notes released");
     }
 
     poll_serial();
-    sweep_step(now);
 
     // Onboard LED: steady when the panel talks to us, slow blink otherwise.
-    digitalWrite(PIN_STATUS_LED, panel_online ? HIGH : ((now / 500) & 1));
-
-    if (now - last_report_ms >= 1000) {
-        last_report_ms = now;
-        if (Serial) report(now);
-    }
-
-#if ENABLE_BREADBOARD_BUTTONS
-    if (now - last_wire_poll_ms >= 10) {
-        last_wire_poll_ms = now;
-        bool play = digitalRead(PIN_BTN_PLAY);
-        if (play != last_play_wire) {
-            last_play_wire = play;
-            send_note(MIDI_NOTE_PLAY_PAUSE, play == LOW);
-        }
-        bool cue = digitalRead(PIN_BTN_CUE);
-        if (cue != last_cue_wire) {
-            last_cue_wire = cue;
-            send_note(MIDI_NOTE_CUE, cue == LOW);
-        }
-    }
-#endif
+    digitalWrite(PIN_STATUS_LED, panel_online || (now / 500) % 2);
 }

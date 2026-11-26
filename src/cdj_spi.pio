@@ -1,0 +1,72 @@
+; CDJ-800 front panel link: SPI mode 3 slave on two PIO state machines.
+;
+; The panel is the SPI master (~1 MHz). Its SCK wire glitches, so both
+; programs only accept a clock edge if the new level is still there 16
+; system clocks later (~107 ns at 150 MHz): "wait ... [15]" waits for the
+; level and then pauses 15 more cycles, "jmp pin" checks it again.
+;
+; Source for cdj_spi.pio.h. After editing, regenerate the header with
+;   pioasm -o c-sdk src/cdj_spi.pio src/cdj_spi.pio.h
+; (pioasm ships with PlatformIO in packages/tool-pioasm-rp2040-earlephilhower)
+
+; ---------------------------------------------------------------------------
+; Receive: sample the panel's data line on every rising SCK edge.
+;   in pin 0 = data from the panel (GP16)
+;   in pin 2 = SCK (GP18), also the jmp pin
+; Every bit is pushed on its own (autopush threshold 1); DMA copies each one
+; into a byte of the receive buffer.
+; ---------------------------------------------------------------------------
+.program cdj_spi_rx
+.wrap_target
+wait_low:
+    wait 0 pin 2 [15]   ; SCK low, then hold off
+    jmp pin wait_low    ; high again -> it was a glitch, wait again
+wait_high:
+    wait 1 pin 2 [15]   ; SCK high, then hold off
+    jmp pin sample      ; still high -> real rising edge
+    jmp wait_high       ; low again -> glitch
+sample:
+    in pins, 1          ; read one data bit (autopush)
+.wrap
+
+% c-sdk {
+static inline pio_sm_config cdj_spi_rx_config(uint offset, uint pin_data, uint pin_sck) {
+    pio_sm_config c = cdj_spi_rx_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, pin_data);        // pin_sck must be pin_data + 2
+    sm_config_set_jmp_pin(&c, pin_sck);
+    sm_config_set_in_shift(&c, false, true, 1); // MSB first, autopush every bit
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+    return c;
+}
+%}
+
+; ---------------------------------------------------------------------------
+; Transmit: put the next display bit on our data line on every falling SCK
+; edge (mode 3: the panel samples it on the following rising edge).
+;   in pin 0  = SCK (GP18), also the jmp pin
+;   out pin 0 = data to the panel (GP19)
+; DMA fills the TX FIFO with the 20-byte display frame; autopull every 8 bits.
+; ---------------------------------------------------------------------------
+.program cdj_spi_tx
+.wrap_target
+fall:
+    wait 0 pin 0 [15]   ; SCK low, then hold off
+    jmp pin fall        ; high again -> glitch
+    out pins, 1         ; real falling edge: next bit out (autopull)
+rise:
+    wait 1 pin 0 [15]   ; SCK high, then hold off
+    jmp pin fall        ; still high -> real rising edge, wait for next fall
+    jmp rise            ; low again -> glitch
+.wrap
+
+% c-sdk {
+static inline pio_sm_config cdj_spi_tx_config(uint offset, uint pin_sck, uint pin_data) {
+    pio_sm_config c = cdj_spi_tx_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, pin_sck);
+    sm_config_set_jmp_pin(&c, pin_sck);
+    sm_config_set_out_pins(&c, pin_data, 1);
+    sm_config_set_out_shift(&c, false, true, 8); // MSB first, autopull every byte
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    return c;
+}
+%}
